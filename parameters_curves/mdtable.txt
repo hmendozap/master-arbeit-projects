@@ -1,0 +1,8 @@
+Solver   Code
+-------------
+adadelta  0
+adagrad   1
+adam      2
+momentum  3
+nesterov  4
+sgd       5

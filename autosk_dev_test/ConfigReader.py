@@ -1,0 +1,231 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Thu Feb 12 2016
+
+@author: Hector
+
+Class to load and store configurations
+read from run or trajectory files
+"""
+import os
+import numpy as _np
+import pandas as _pd
+import natsort as _ns
+import glob as _glob
+
+
+def _hyp_split(x, listing):
+    param_value = x.strip().rstrip('"').replace("'", "").split('=')
+    pname = param_value[0].replace("__", "")
+    if pname not in listing:
+        listing.append(pname)
+    return param_value[1]
+
+
+class ConfigReader:
+
+    def __init__(self, data_dir=None, scenario=None):
+        self.scenario = scenario
+        self.data_dir = data_dir
+        self.full_config = False
+
+    def load_run_configs(self, data_dir=None, scenario=None,
+                         preprocessor='no_preprocessing', full_config=False):
+        """
+        :param data_dir: Directory of where SMAC files live
+        :param scenario: In this case, the dataset used to train the model
+        :param preprocessor: Preprocessing method used in the data. None means all
+        :param full_config: Whether to return also the configuration of the preprocessor,
+                            imputation and one-hot-encoding
+        :return: pandas.DataFrame with the every performance (training errors) and the feed neural network
+                 configurations run by SMAC
+        """
+        if data_dir is None:
+            data_dir = self.data_dir
+        else:
+            raise NameError('Location of information not given')
+
+        if scenario is None:
+            scenario = self.scenario
+        else:
+            raise NameError('Dataset not given')
+
+        run_filename = "runs_and_results-SHUTDOWN*"
+        state_seed = "state-run*"
+        if preprocessor is None:
+            scenario_dir = os.path.join(data_dir, scenario, '*', scenario, state_seed, run_filename)
+        else:
+            scenario_dir = os.path.join(data_dir, scenario, preprocessor, scenario, state_seed, run_filename)
+
+        dirs = _ns.natsorted(_glob.glob(scenario_dir))
+        all_runs = []
+        runs_by_seed = []
+        for fnames in dirs:
+            try:
+                run_res = self.load_run_by_file(fnames, full_config=full_config)
+                all_runs.append(run_res)
+                runs_by_seed.append(run_res.shape[0])
+            except IndexError:
+                print('CRASH in: ' + os.path.split(fnames)[1])
+
+        # Treat each seed as independent runs
+        runs_all_df = _pd.concat(all_runs, axis=0)
+        runs_all_df = runs_all_df.reset_index().drop('index', axis=1)
+        # Try to convert to numeric type
+        runs_all_df = runs_all_df.apply(_pd.to_numeric, errors='ignore')
+
+        return runs_all_df.copy()
+
+    def load_run_by_file(self, fname, full_config=False):
+        """
+        :param fname: filename to load
+        :param full_config: Whether to return also the configuration of the preprocessor,
+                            imputation and one-hot-encoding
+        :return: pandas.DataFrame with configuration and validation error
+        """
+        run_cols = ['config_id', 'response', 'runtime',
+                    'smac_iter', 'cum_runtime', 'run_result']
+
+        try:
+            run_df = _pd.read_csv(fname, delimiter=",", usecols=[1, 3, 7, 11, 12, 13],
+                                  skipinitialspace=False,
+                                  header=None, skiprows=1)
+        except OSError:
+            print('file %s does not exist. Please check path' % fname)
+
+        run_df.columns = run_cols
+        run_df.sort_values(by='response', axis=0, ascending=False, na_position='first', inplace=True)
+        run_df.drop_duplicates('config_id', keep='last', inplace=True)
+
+        base_dir = os.path.dirname(fname)
+        config_filename = "paramstrings-SHUTDOWN*"
+        confname = _glob.glob(os.path.join(base_dir, config_filename))[0]
+        config_df = _pd.read_csv(confname, delimiter=",|:\s", header=None)
+
+        # Get the values of configuration parameters
+        names = []
+        config_df.iloc[:, 1:] = config_df.iloc[:, 1:].apply(lambda x: x.apply(_hyp_split, args=(names,)))
+
+        # Almost everything that goes from the second(:) is eliminated from names
+        # list(map()) because python3
+        classifier_names = list(map(lambda Y: Y.split(':')[-1], names))
+
+        # Name column and remove not-classifier parameters
+        config_df.columns = ['config_id'] + classifier_names
+
+        if not full_config:
+            cols_to_drop = [1, 31, 32, 33, 34]
+            configuration_df = config_df.drop(config_df.columns[cols_to_drop], axis=1)
+            run_config_df = _pd.merge(run_df, configuration_df, on='config_id')
+        else:
+            run_config_df = _pd.merge(run_df, config_df, on='config_id')
+
+        # Filter configurations over the error to have a better fit
+        run_config_df = run_config_df[run_config_df['response'] > 0.0]
+        run_config_df = run_config_df[run_config_df['response'] < 1.0]
+        #run_config_df = run_config_df.query('response > 0 and response < 1.0')
+
+        return run_config_df.copy()
+
+    def load_trajectory_by_file(self, fname, full_config=False):
+        """
+        :param fname: filename to load
+        :param full_config: Whether to return also the configuration of the preprocessor, imputation and one-hot-encoding
+        :return: pandas.DataFrame with filtered columns
+        """
+
+        traj_cols = ['cpu_time', 'performance', 'wallclock_time',
+                     'incumbentID', 'autoconfig_time']
+
+        rm_quote = lambda z: z.strip('" ')
+
+        try:
+            traj_res = _pd.read_csv(fname, delimiter=",",
+                                    skipinitialspace=False, converters={5: rm_quote},
+                                    header=None, skiprows=1)
+        except OSError:
+            print('file %s does not exist. Please check path' % fname)
+
+        names = []
+        traj_res.iloc[:, 1] = _pd.to_numeric(traj_res.iloc[:, 1], errors='coerce')
+        # Get the values of configuration parameters
+        traj_res.iloc[:, 5:-1] = traj_res.iloc[:, 5:-1].apply(lambda x: x.apply(_hyp_split, args=(names,)))
+
+        if full_config:
+            smac_cols = [tuple([a]+[b]) for a, b in zip(['smac']*len(traj_cols), traj_cols)]
+
+            from operator import itemgetter
+            full_parameter_names = map(lambda y: itemgetter(0, -1)(y.split(':')), names)
+
+            params_inx = _pd.MultiIndex.from_tuples(smac_cols + list(full_parameter_names))
+            traj_res.columns = params_inx + ['expected']
+            traj_res.performance = _pd.to_numeric(traj_res['performance'], errors='coerce')
+            traj_res.sort_values(by='performance', axis=0, ascending=False, na_position='first', inplace=True)
+            traj_res.drop_duplicates('incumbentID', keep='last', inplace=True)
+
+            class_df = traj_res.drop('expected', axis=1)
+        else:
+            classifier_names = list(map(lambda X: X.split(':')[-1], names))
+            # Avoid this magic constant
+            classifier_names[33] = 'preprocessor'
+
+            traj_res.columns = traj_cols + classifier_names + ['expected']
+            # Drop duplicated configuration and leave the best X-validation error
+            traj_res.performance = _pd.to_numeric(traj_res['performance'], errors='coerce')
+            traj_res.sort_values(by='performance', axis=0, ascending=False, na_position='first', inplace=True)
+            traj_res.drop_duplicates('incumbentID', keep='last', inplace=True)
+
+            # Drop "unnecessary" columns
+            cols_to_drop = [0, 2, 3, 4, 6, 35, 36, 37] + range(39, len(names)+6)
+            class_df = traj_res.drop(traj_res.columns[cols_to_drop], axis=1)
+
+        return class_df.copy()
+
+    def load_trajectories(self, data_dir, scenario, preprocessor=None, full_config=False):
+        """
+        :param data_dir: Directory of where SMAC files live
+        :param scenario: Dataset used to train the model
+        :param preprocessor: Preprocessing method used in the data. None means all
+        :param full_config: Whether to return also the configuration of the preprocessor, imputation and one-hot-encoding
+        :return: pandas.DataFrame with the performance (training errors) and the feed neural network configurations given
+                 by the detailed trajectory files
+        """
+
+        traj_filename =  "detailed-traj-run-*.csv"
+        if preprocessor is None:
+            scenario_dir = os.path.join(data_dir, scenario, '*', scenario, traj_filename)
+        else:
+            scenario_dir = os.path.join(data_dir, scenario, preprocessor, scenario, traj_filename)
+
+        dirs = _ns.natsorted(_glob.glob(scenario_dir))
+        seeds = ['seed_' + itseeds.split('-')[-1].split('.')[0] for itseeds in dirs]
+        all_trajs = []
+        runs_by_seed = []
+        for fnames in dirs:
+            try:
+                run_res = self.load_trajectory_by_file(fnames, full_config=full_config)
+                all_trajs.append(run_res)
+                runs_by_seed.append(run_res.shape[0])
+            except IndexError:
+                print('CRASH in: ' + os.path.split(fnames)[1])
+
+        # Treat each seed as independent runs
+        traj_all_DF = _pd.concat(all_trajs, axis=0)
+        traj_all_DF = traj_all_DF.reset_index().drop('index', axis=1)
+        # Try to convert to numeric type
+        traj_all_DF = traj_all_DF.apply(_pd.to_numeric, errors='ignore')
+
+        return traj_all_DF.copy()
+
+    def save_config_run(self, storage_dir):
+        """
+        :param storage_dir:
+        :return:
+        """
+        if storage_dir is None:
+            storage_dir = self.data_dir
+        # Save as numpy array due to easiness with random_forest_run
+        _np.save(os.path.join(self.storage_dir,'data_matrix'), run_df)
+
+    def save_config_trajectories(self):
+        _np.save(os.path.join(self.storage_dir,'trajectory_matrix'), traj_df)

@@ -2,6 +2,12 @@
 utilities/binaries/
 num_run_*
 
+# csv that maybe too big
+*.csv
+
+# Ignore .bin files from fitted forests
+*.bin
+
 # Pycharm files
 .idea/
 
@@ -67,3 +73,6 @@ target/
 
 #Ipython Notebook
 .ipynb_checkpoints
+
+# Ignore vim editions
+*.swp
