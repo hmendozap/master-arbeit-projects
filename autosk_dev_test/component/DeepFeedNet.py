@@ -43,7 +43,6 @@ class DeepFeedNet(AutoSklearnClassificationAlgorithm):
             self.std_per_layer.append(float(eval("std_layer_" + str(i))))
         self.estimator = None
 
-    # Basically the NN
     def fit(self, X, y):
         self.batch_size = int(self.batch_size)
 
@@ -51,7 +50,6 @@ class DeepFeedNet(AutoSklearnClassificationAlgorithm):
         self.input_shape = (self.batch_size, self.n_features)
         num_output_units = len(np.unique(y.astype(int)))
 
-        #TODO: Create try-catch statement
         assert len(self.num_units_per_layer) == self.num_layers - 1
         assert len(self.dropout_per_layer) == self.num_layers - 1
 

@@ -25,6 +25,8 @@ def _hyp_split(x, listing):
 class ConfigReader:
 
     def __init__(self, data_dir=None, scenario=None):
+        self.runs_df = None
+        self.trajectories_df = None
         self.scenario = scenario
         self.data_dir = data_dir
         self.full_config = False
@@ -32,6 +34,8 @@ class ConfigReader:
     def load_run_configs(self, data_dir=None, scenario=None,
                          preprocessor='no_preprocessing', full_config=False):
         """
+        Loads all configurations run by SMAC, with validation error response
+
         :param data_dir: Directory of where SMAC files live
         :param scenario: In this case, the dataset used to train the model
         :param preprocessor: Preprocessing method used in the data. None means all
@@ -40,15 +44,15 @@ class ConfigReader:
         :return: pandas.DataFrame with the every performance (training errors) and the feed neural network
                  configurations run by SMAC
         """
-        if data_dir is None:
+        if data_dir is None and self.data_dir is None:
+            raise ValueError('Location of information not given')
+        elif self.data_dir is not None:
             data_dir = self.data_dir
-        else:
-            raise NameError('Location of information not given')
 
-        if scenario is None:
+        if scenario is None and self.scenario is not None:
             scenario = self.scenario
-        else:
-            raise NameError('Dataset not given')
+        elif self.scenario is None:
+            raise ValueError('Dataset not given')
 
         run_filename = "runs_and_results-SHUTDOWN*"
         state_seed = "state-run*"
@@ -58,6 +62,9 @@ class ConfigReader:
             scenario_dir = os.path.join(data_dir, scenario, preprocessor, scenario, state_seed, run_filename)
 
         dirs = _ns.natsorted(_glob.glob(scenario_dir))
+        if len(dirs) == 0:
+            raise ValueError('No runs_and_results files found.')
+
         all_runs = []
         runs_by_seed = []
         for fnames in dirs:
@@ -74,10 +81,12 @@ class ConfigReader:
         # Try to convert to numeric type
         runs_all_df = runs_all_df.apply(_pd.to_numeric, errors='ignore')
 
+        self.runs_df = runs_all_df.copy()
         return runs_all_df.copy()
 
     def load_run_by_file(self, fname, full_config=False):
         """
+        Loads one single configuration file run by SMAC, with validation error response
         :param fname: filename to load
         :param full_config: Whether to return also the configuration of the preprocessor,
                             imputation and one-hot-encoding
@@ -181,7 +190,8 @@ class ConfigReader:
 
         return class_df.copy()
 
-    def load_trajectories(self, data_dir, scenario, preprocessor=None, full_config=False):
+    def load_trajectories(self, data_dir=None, scenario=None,
+                          preprocessor=None, full_config=False):
         """
         :param data_dir: Directory of where SMAC files live
         :param scenario: Dataset used to train the model
@@ -190,8 +200,17 @@ class ConfigReader:
         :return: pandas.DataFrame with the performance (training errors) and the feed neural network configurations given
                  by the detailed trajectory files
         """
+        if data_dir is None and self.data_dir is None:
+            raise ValueError('Location of information not given')
+        elif self.data_dir is not None:
+            data_dir = self.data_dir
 
-        traj_filename =  "detailed-traj-run-*.csv"
+        if scenario is None and self.scenario is not None:
+            scenario = self.scenario
+        elif self.scenario is None:
+            raise ValueError('Dataset not given')
+
+        traj_filename = "detailed-traj-run-*.csv"
         if preprocessor is None:
             scenario_dir = os.path.join(data_dir, scenario, '*', scenario, traj_filename)
         else:
@@ -209,23 +228,30 @@ class ConfigReader:
             except IndexError:
                 print('CRASH in: ' + os.path.split(fnames)[1])
 
-        # Treat each seed as independent runs
-        traj_all_DF = _pd.concat(all_trajs, axis=0)
-        traj_all_DF = traj_all_DF.reset_index().drop('index', axis=1)
+        trajectories_df = _pd.concat(all_trajs, axis=0)
+        trajectories_df = trajectories_df.reset_index().drop('index', axis=1)
         # Try to convert to numeric type
-        traj_all_DF = traj_all_DF.apply(_pd.to_numeric, errors='ignore')
+        trajectories_df = trajectories_df.apply(_pd.to_numeric, errors='ignore')
 
-        return traj_all_DF.copy()
+        self.trajectories_df = trajectories_df.copy()
+        return trajectories_df.copy()
 
     def save_config_run(self, storage_dir):
         """
-        :param storage_dir:
+        Saves the configurations of all runs in a numpy array
+        :param storage_dir: Directory where to store the data, if empty uses the same as where data was taken
         :return:
         """
         if storage_dir is None:
             storage_dir = self.data_dir
-        # Save as numpy array due to easiness with random_forest_run
-        _np.save(os.path.join(self.storage_dir,'data_matrix'), run_df)
+        _np.save(os.path.join(storage_dir, 'run_data_matrix'), self.runs_df)
 
-    def save_config_trajectories(self):
-        _np.save(os.path.join(self.storage_dir,'trajectory_matrix'), traj_df)
+    def save_config_trajectories(self, storage_dir):
+        """
+        Saves the configurations of detailed trajectories in a numpy array
+        :param storage_dir: Directory where to store the data, if empty uses the same as where data was taken
+        :return:
+        """
+        if storage_dir is None:
+            storage_dir = self.data_dir
+        _np.save(os.path.join(storage_dir, 'trajectory_data_matrix'), self.trajectories_df)

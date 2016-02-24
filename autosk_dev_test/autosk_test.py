@@ -15,7 +15,7 @@ y_train = np.load(dataset_dir + 'train_labels.npy')
 
 ## Create model
 modl = autosk.AutoML(time_left_for_this_task=180, seed=10, per_run_time_limit=30,
-                     tmp_dir='/tmp/autosk_tmp', output_dir='/tmp/autosk_out',
+                     tmp_dir='tmp/autosk_tmp', output_dir='tmp/autosk_out',
                      ensemble_size=1, ensemble_nbest=1, keep_models=True,
                      ml_memory_limit=2048,
                      delete_tmp_folder_after_terminate=False,

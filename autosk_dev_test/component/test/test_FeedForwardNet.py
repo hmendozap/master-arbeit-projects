@@ -1,5 +1,4 @@
 import unittest
-import os
 import numpy as np
 
 from component.implementation.FeedForwardNet import FeedForwardNet
@@ -8,17 +7,17 @@ from component.implementation.FeedForwardNet import FeedForwardNet
 class TestFeedForwardNet(unittest.TestCase):
     def test_initial_feed_implementation(self):
         """
-        Test initial implementation of NN Feed Forward architecture
-        on Theano and Lasagne
+        Test of initial implementation of simple run in
+        NN Feed Forward architecture on Theano and Lasagne
         """
 
-        # Simple test that hopefully works
-        dataset_dir = '../data/'
+        dataset_dir = '/home/mendozah/workspace/datasets/dataset_728/'
+
         # Take training and data from binary classification
-        X_train = np.load(dataset_dir + 'unit_train.npy')
-        y_train = np.load(dataset_dir + 'unit_train_labels.npy')
-        X_test = np.load(dataset_dir + 'unit_test.npy')
-        y_test = np.load(dataset_dir + 'unit_test_labels.npy')
+        X_train = np.load(dataset_dir + 'train.npy')
+        y_train = np.load(dataset_dir + 'train_labels.npy')
+        X_test = np.load(dataset_dir + 'test.npy')
+        y_test = np.load(dataset_dir + 'test_labels.npy')
 
         # The input shape is using the batch size
         model = FeedForwardNet(input_shape=(50, 7), batch_size=50, num_epochs=2)
