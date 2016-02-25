@@ -14,8 +14,7 @@ import lasagne
 DEBUG = True
 
 
-def iterate_minibatches(inputs, targets, batchsize, shuffle=False):
-    # assert len(inputs) == len(targets)
+def iterate_minibatches(inputs, targets, batchsize, num_updates, shuffle=False):
     assert inputs.shape[0] == targets.shape[0]
     if shuffle:
         indices = np.arange(inputs.shape[0])
@@ -34,10 +33,9 @@ class FeedForwardNet(object):
                  dropout_per_layer=(0.5, 0.5, 0.5), std_per_layer=(0.005, 0.005, 0.005),
                  num_output_units=2, dropout_output=0.5, learning_rate=0.01,
                  momentum=0.9, beta1=0.9, beta2=0.9,
-                 rho=0.95, solver="sgd", num_epochs=3, is_sparse=False):
+                 rho=0.95, solver="sgd", num_epochs=3, num_updates=10000,
+                 is_sparse=False):
 
-        # I don't like the idea that parameters have
-        # a default with random values
         self.batch_size = batch_size
         self.input_shape = input_shape
         self.num_layers = num_layers
@@ -51,6 +49,7 @@ class FeedForwardNet(object):
         self.beta1 = beta1
         self.beta2 = beta2
         self.rho = rho
+        self.number_updates = num_updates
         self.num_epochs = num_epochs
 
         # TODO: Add correct theano shape constructor
@@ -132,22 +131,18 @@ class FeedForwardNet(object):
                                         updates=updates,
                                         allow_input_downcast=True)
 
-        # Not so sure about this thing
-        # self.test_fn = theano.function([input_var, target_var],
-                                      # [valid_loss, valid_acc],
-                                      # allow_input_downcast=True)
-
     def fit(self, X, y):
         for epoch in range(self.num_epochs):
             # TODO: Add exception RaiseError in shape
             train_err = 0
             train_batches = 0
-            # if DEBUG:
-            #   start_time = time.time()
-            for batch in iterate_minibatches(X, y, self.batch_size, shuffle=True):
+            for batch in iterate_minibatches(X, y, self.batch_size, self.number_updates, shuffle=True):
                 inputs, targets = batch
                 train_err += self.train_fn(inputs, targets)
                 train_batches += 1
+            assert (train_batches == self.number_updates)
+            print("  training error:\t\t{:.6f}".format(train_err))
+            print("  training batches:\t\t{:.6f}".format(train_batches))
             print("  training loss:\t\t{:.6f}".format(train_err / train_batches))
         return self
 

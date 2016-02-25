@@ -23,13 +23,13 @@ class TestFeedForwardNet(unittest.TestCase):
         model = FeedForwardNet(input_shape=(50, 7), batch_size=50, num_epochs=2)
 
         model.fit(X_train, y_train)
-        print "Model fitted"
+        print("Model fitted")
 
         predicted_probability_matrix = model.predict_proba(X_test)
         expected_labels = np.argmax(predicted_probability_matrix, axis=1)
         predicted_labels = model.predict(X_test)
         accuracy = np.count_nonzero(y_test == predicted_labels)
-        print (float(accuracy) / float(X_test.shape[0]))
+        print(float(accuracy) / float(X_test.shape[0]))
 
         self.assertTrue((predicted_labels == expected_labels).all(), msg="Failed predicted probability")
         self.assertTrue((1 - predicted_probability_matrix.sum(axis=1) < 1e-3).all())

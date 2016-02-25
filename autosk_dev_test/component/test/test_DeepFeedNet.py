@@ -20,10 +20,10 @@ class FeedForwardComponentTest(unittest.TestCase):
 
         dataset_dir = '/home/mendozah/workspace/datasets/dataset_728/'
 
-        X_train = np.load(dataset_dir + 'unit_train.npy')
-        y_train = np.load(dataset_dir + 'unit_train_labels.npy')
-        X_test = np.load(dataset_dir + 'unit_test.npy')
-        y_test = np.load(dataset_dir + 'unit_test_labels.npy')
+        X_train = np.load(dataset_dir + 'train.npy')
+        y_train = np.load(dataset_dir + 'train_labels.npy')
+        X_test = np.load(dataset_dir + 'test.npy')
+        y_test = np.load(dataset_dir + 'test_labels.npy')
 
         for i in range(10):
             configuration_space = DeepFeedNet.get_hyperparameter_search_space()

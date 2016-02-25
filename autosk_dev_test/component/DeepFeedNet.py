@@ -29,8 +29,9 @@ class DeepFeedNet(AutoSklearnClassificationAlgorithm):
         self.dropout_output = dropout_output
         self.learning_rate = learning_rate
         self.momentum = momentum
-        self.beta1 = beta1
-        self.beta2 = beta2
+        # Added 1-beta due to change in config space
+        self.beta1 = 1-beta1
+        self.beta2 = 1-beta2
         self.rho = rho
         self.solver = solver
 
@@ -112,9 +113,14 @@ class DeepFeedNet(AutoSklearnClassificationAlgorithm):
         layer_choices = [i for i in range(2, 7)]
 
         batch_size = UniformIntegerHyperparameter("batch_size", 100, 1000,
+                                                  log=True,
                                                   default=100)
 
-        number_epochs = UniformIntegerHyperparameter("number_epochs", 2, 10,
+        number_updates = UniformIntegerHyperparameter("number_updates",
+                                                      100, 1000,
+                                                      default=3)
+
+        number_epochs = UniformIntegerHyperparameter("number_epochs", 2, 20,
                                                      default=3)
 
         num_layers = CategoricalHyperparameter("num_layers",
@@ -123,45 +129,57 @@ class DeepFeedNet(AutoSklearnClassificationAlgorithm):
 
         num_units_layer_1 = UniformIntegerHyperparameter("num_units_layer_1",
                                                          10, 6144,
+                                                         log=True,
                                                          default=10)
 
         num_units_layer_2 = UniformIntegerHyperparameter("num_units_layer_2",
                                                          10, 6144,
+                                                         log=True,
                                                          default=10)
 
         num_units_layer_3 = UniformIntegerHyperparameter("num_units_layer_3",
                                                          10, 6144,
+                                                         log=True,
                                                          default=10)
 
         num_units_layer_4 = UniformIntegerHyperparameter("num_units_layer_4",
                                                          10, 6144,
+                                                         log=True,
                                                          default=10)
 
         num_units_layer_5 = UniformIntegerHyperparameter("num_units_layer_5",
                                                          10, 6144,
+                                                         log=True,
                                                          default=10)
 
         num_units_layer_6 = UniformIntegerHyperparameter("num_units_layer_6",
                                                          10, 6144,
+                                                         log=True,
                                                          default=10)
 
         dropout_layer_1 = UniformFloatHyperparameter("dropout_layer_1",
-                                                     0.0, 0.99, default=0.5)
+                                                     0.0, 0.99,
+                                                     default=0.5)
 
         dropout_layer_2 = UniformFloatHyperparameter("dropout_layer_2",
-                                                     0.0, 0.99, default=0.5)
+                                                     0.0, 0.99,
+                                                     default=0.5)
 
         dropout_layer_3 = UniformFloatHyperparameter("dropout_layer_3",
-                                                     0.0, 0.99, default=0.5)
+                                                     0.0, 0.99,
+                                                     default=0.5)
 
         dropout_layer_4 = UniformFloatHyperparameter("dropout_layer_4",
-                                                     0.0, 0.99, default=0.5)
+                                                     0.0, 0.99,
+                                                     default=0.5)
 
         dropout_layer_5 = UniformFloatHyperparameter("dropout_layer_5",
-                                                     0.0, 0.99, default=0.5)
+                                                     0.0, 0.99,
+                                                     default=0.5)
 
         dropout_layer_6 = UniformFloatHyperparameter("dropout_layer_6",
-                                                     0.0, 0.99, default=0.5)
+                                                     0.0, 0.99,
+                                                     default=0.5)
 
         dropout_output = UniformFloatHyperparameter("dropout_output", 0.0, 0.99,
                                                     default=0.5)
@@ -173,33 +191,44 @@ class DeepFeedNet(AutoSklearnClassificationAlgorithm):
                                               default=0.9)
 
         std_layer_1 = UniformFloatHyperparameter("std_layer_1", 1e-6, 0.1,
+                                                 log=True,
                                                  default=0.005)
 
         std_layer_2 = UniformFloatHyperparameter("std_layer_2", 1e-6, 0.1,
+                                                 log=True,
                                                  default=0.005)
 
         std_layer_3 = UniformFloatHyperparameter("std_layer_3", 1e-6, 0.1,
+                                                 log=True,
                                                  default=0.005)
 
         std_layer_4 = UniformFloatHyperparameter("std_layer_4", 1e-6, 0.1,
+                                                 log=True,
                                                  default=0.005)
 
         std_layer_5 = UniformFloatHyperparameter("std_layer_5", 1e-6, 0.1,
+                                                 log=True,
                                                  default=0.005)
 
         std_layer_6 = UniformFloatHyperparameter("std_layer_6", 1e-6, 0.1,
+                                                 log=True,
                                                  default=0.005)
 
         solver = CategoricalHyperparameter(name="solver",
                                            choices=solver_choices,
                                            default="adagrad")
 
-        beta1 = UniformFloatHyperparameter("beta1", 0.01, 1.0, default=0.9)
-        beta2 = UniformFloatHyperparameter("beta2", 0.01, 1.0, default=0.9)
+        beta1 = UniformFloatHyperparameter("beta1", 1e-4, 0.1,
+                                           log=True,
+                                           default=0.1)
+        beta2 = UniformFloatHyperparameter("beta2", 1e-4, 0.1,
+                                           log=True,
+                                           default=0.1)
         rho = UniformFloatHyperparameter("rho", 0.0, 1.0, default=0.95)
 
         cs = ConfigurationSpace()
-        cs.add_hyperparameter(number_epochs)
+        # cs.add_hyperparameter(number_epochs)
+        cs.add_hyperparameter(number_updates)
         cs.add_hyperparameter(batch_size)
         cs.add_hyperparameter(num_layers)
         cs.add_hyperparameter(num_units_layer_1)
