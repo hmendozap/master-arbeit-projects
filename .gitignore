@@ -1,6 +1,7 @@
 # autosk-learn binaries
 utilities/binaries/
 num_run_*
+tmp/
 
 # csv that maybe too big
 *.csv
@@ -76,3 +77,4 @@ target/
 
 # Ignore vim editions
 *.swp
+*.*~
