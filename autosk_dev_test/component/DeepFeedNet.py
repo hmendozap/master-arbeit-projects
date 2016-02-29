@@ -15,15 +15,14 @@ from implementation import FeedForwardNet
 
 class DeepFeedNet(AutoSklearnClassificationAlgorithm):
 
-    def __init__(self, number_epochs, batch_size, num_layers, num_units_layer_1,
+    def __init__(self, number_updates, batch_size, num_layers, num_units_layer_1,
                  num_units_layer_2, num_units_layer_3, num_units_layer_4,
-                 num_units_layer_5, num_units_layer_6, dropout_layer_1,
-                 dropout_layer_2, dropout_layer_3, dropout_layer_4,
+                 num_units_layer_5, num_units_layer_6, dropout_layer_1, dropout_layer_2, dropout_layer_3, dropout_layer_4,
                  dropout_layer_5, dropout_layer_6, dropout_output,
                  std_layer_1, std_layer_2, std_layer_3, std_layer_4,
                  std_layer_5, std_layer_6, learning_rate, solver,
                  momentum=0.99, beta1=0.9, beta2=0.9, rho=0.95, random_state=None):
-        self.number_epochs = number_epochs
+        self.number_updates = number_updates
         self.batch_size = batch_size
         self.num_layers = num_layers
         self.dropout_output = dropout_output
@@ -56,6 +55,12 @@ class DeepFeedNet(AutoSklearnClassificationAlgorithm):
 
         m_issparse = sp.issparse(X)
 
+        # Calculate the number of epochs
+        # TODO: Calculate correctly how updates influence number_updates=self.number_updates,
+        epoch = (self.number_updates * self.batch_size) / X.shape[0]
+        number_epochs = max(2, epoch)
+        # number_epochs = min(max(2, epoch), 30)
+
         self.estimator = FeedForwardNet.FeedForwardNet(batch_size=self.batch_size,
                                                        input_shape=self.input_shape,
                                                        num_layers=self.num_layers,
@@ -70,7 +75,7 @@ class DeepFeedNet(AutoSklearnClassificationAlgorithm):
                                                        beta2=self.beta2,
                                                        rho=self.rho,
                                                        solver=self.solver,
-                                                       num_epochs=self.number_epochs,
+                                                       num_epochs=number_epochs,
                                                        is_sparse=m_issparse)
         self.estimator.fit(X, y)
         return self
@@ -110,18 +115,18 @@ class DeepFeedNet(AutoSklearnClassificationAlgorithm):
 
         solver_choices = ["adam", "adadelta", "adagrad", "sgd", "momentum", "nesterov"]
 
-        layer_choices = [i for i in range(2, 7)]
+        layer_choices = [i for i in range(2, 6)]
 
         batch_size = UniformIntegerHyperparameter("batch_size", 100, 1000,
                                                   log=True,
                                                   default=100)
 
         number_updates = UniformIntegerHyperparameter("number_updates",
-                                                      100, 1000,
-                                                      default=3)
+                                                      500, 2500,
+                                                      default=500)
 
-        number_epochs = UniformIntegerHyperparameter("number_epochs", 2, 20,
-                                                     default=3)
+        #number_epochs = UniformIntegerHyperparameter("number_epochs", 2, 20,
+        #                                             default=3)
 
         num_layers = CategoricalHyperparameter("num_layers",
                                                choices=layer_choices,

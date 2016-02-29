@@ -1,26 +1,27 @@
 # -*- encoding: utf-8 -*-
 
-## Because we need it
+# Because we need it
 import numpy as np
 import autosklearn.automl as autosk
-# import autosklearn.classification.AutoSklearnClassifier
-# import autosklearn.estimators as autoEstim
+from autosklearn.pipeline.components.classification import add_classifier
+from component import DeepFeedNet
 
 dataset_dir = '/home/hmendoza/workspace/master_arbeit/auto-deep/datasets/dataset_728/'
 
-## Load our training data
+# Load our training data
 X_train = np.load(dataset_dir + 'train.npy')
 y_train = np.load(dataset_dir + 'train_labels.npy')
 
+add_classifier(DeepFeedNet.DeepFeedNet)
 
-## Create model
+# Create model
 modl = autosk.AutoML(time_left_for_this_task=180, seed=10, per_run_time_limit=30,
                      tmp_dir='tmp/autosk_tmp', output_dir='tmp/autosk_out',
                      ensemble_size=1, ensemble_nbest=1, keep_models=True,
                      ml_memory_limit=2048,
                      delete_tmp_folder_after_terminate=False,
                      initial_configurations_via_metalearning=0,
-                     include_estimators=['feed_nn'])
+                     include_estimators=['DeepFeedNet'])
 
 modl.fit(X_train, y_train)
 

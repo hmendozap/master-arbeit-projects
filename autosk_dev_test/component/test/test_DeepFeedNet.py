@@ -1,4 +1,5 @@
 import unittest
+import os
 
 from component.DeepFeedNet import DeepFeedNet
 from autosklearn.pipeline.util import _test_classifier, _test_classifier_predict_proba
@@ -17,8 +18,10 @@ class FeedForwardComponentTest(unittest.TestCase):
             #                       sklearn.metrics.accuracy_score(predictions, targets))
 
     def test_default_configuration_space(self):
-
-        dataset_dir = '/home/mendozah/workspace/datasets/dataset_728/'
+        home_dir = os.environ['HOME']
+        dataset_dir = os.path.join(home_dir, 'workspace/'
+                                             'master_arbeit/auto-deep/'
+                                             'datasets/dataset_728/')
 
         X_train = np.load(dataset_dir + 'train.npy')
         y_train = np.load(dataset_dir + 'train_labels.npy')
