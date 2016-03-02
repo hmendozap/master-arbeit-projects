@@ -57,7 +57,7 @@ class DeepFeedNet(AutoSklearnClassificationAlgorithm):
 
         # Calculate the number of epochs
         # TODO: Calculate correctly how updates influence number_updates=self.number_updates,
-        epoch = (self.number_updates * self.batch_size) / X.shape[0]
+        epoch = (self.number_updates * self.batch_size)//X.shape[0]
         number_epochs = max(2, epoch)
         # number_epochs = min(max(2, epoch), 30)
 
@@ -122,10 +122,10 @@ class DeepFeedNet(AutoSklearnClassificationAlgorithm):
                                                   default=100)
 
         number_updates = UniformIntegerHyperparameter("number_updates",
-                                                      500, 2500,
-                                                      default=500)
+                                                      100, 500,
+                                                      default=150)
 
-        #number_epochs = UniformIntegerHyperparameter("number_epochs", 2, 20,
+        # number_epochs = UniformIntegerHyperparameter("number_epochs", 2, 20,
         #                                             default=3)
 
         num_layers = CategoricalHyperparameter("num_layers",

@@ -84,7 +84,8 @@ class ConfigReader:
         self.runs_df = runs_all_df.copy()
         return runs_all_df.copy()
 
-    def load_run_by_file(self, fname, full_config=False):
+    @staticmethod
+    def load_run_by_file(fname, full_config=False):
         """
         Loads one single configuration file run by SMAC, with validation error response
         :param fname: filename to load
@@ -107,8 +108,16 @@ class ConfigReader:
         run_df.drop_duplicates('config_id', keep='last', inplace=True)
 
         base_dir = os.path.dirname(fname)
-        config_filename = "paramstrings-SHUTDOWN*"
-        confname = _glob.glob(os.path.join(base_dir, config_filename))[0]
+        # TODO: Add checks to wheter one is using a non runs_results file
+        config_run_match = fname.rsplit('runs_and_results-')[1].rsplit('.')[0]
+        config_filename = "paramstrings-" + config_run_match + "*"
+        print(config_filename)
+
+        try:
+            confname = _glob.glob(os.path.join(base_dir, config_filename))[0]
+        except IndexError:
+            raise IndexError("There is no parameter configuration file")
+
         config_df = _pd.read_csv(confname, delimiter=",|:\s", header=None)
 
         # Get the values of configuration parameters
