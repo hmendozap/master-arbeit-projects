@@ -2,6 +2,7 @@ import unittest
 import numpy as np
 
 from component.implementation.FeedForwardNet import FeedForwardNet
+from component.implementation.BinaryFeedForwardNet import BinaryFeedForwardNet
 
 
 class TestFeedForwardNet(unittest.TestCase):
@@ -11,7 +12,8 @@ class TestFeedForwardNet(unittest.TestCase):
         NN Feed Forward architecture on Theano and Lasagne
         """
 
-        dataset_dir = '/home/mendozah/workspace/datasets/dataset_728/'
+        dataset_dir = '/home/hmendoza/workspace/master_arbeit/' \
+                      'auto-deep/datasets/dataset_728/'
 
         # Take training and data from binary classification
         X_train = np.load(dataset_dir + 'train.npy')
@@ -20,7 +22,8 @@ class TestFeedForwardNet(unittest.TestCase):
         y_test = np.load(dataset_dir + 'test_labels.npy')
 
         # The input shape is using the batch size
-        model = FeedForwardNet(input_shape=(50, 7), batch_size=50, num_epochs=2)
+        model = FeedForwardNet(input_shape=(50, 7), batch_size=50,
+                               num_epochs=2)
 
         model.fit(X_train, y_train)
         print("Model fitted")
@@ -28,6 +31,49 @@ class TestFeedForwardNet(unittest.TestCase):
         predicted_probability_matrix = model.predict_proba(X_test)
         expected_labels = np.argmax(predicted_probability_matrix, axis=1)
         predicted_labels = model.predict(X_test)
+        accuracy = np.count_nonzero(y_test == predicted_labels)
+        print(float(accuracy) / float(X_test.shape[0]))
+
+        self.assertTrue((predicted_labels == expected_labels).all(), msg="Failed predicted probability")
+        self.assertTrue((1 - predicted_probability_matrix.sum(axis=1) < 1e-3).all())
+
+    def test_binary_feed_implementation(self):
+        """
+        Test of binary (logistic) implementation of
+        feed forward neural network with sigmodial output
+        and binary cross entropy (BEC)
+        :return:
+        """
+        dataset_dir = '/home/hmendoza/workspace/master_arbeit/' \
+                      'auto-deep/datasets/dataset_728/'
+
+        # Take training and data from binary classification
+        X_train = np.load(dataset_dir + 'train.npy')
+        y_train = np.load(dataset_dir + 'train_labels.npy')
+        y_train = y_train[:, np.newaxis]
+        X_test = np.load(dataset_dir + 'test.npy')
+        y_test = np.load(dataset_dir + 'test_labels.npy')
+        y_test = y_test[:, np.newaxis]
+
+        model = BinaryFeedForwardNet(input_shape=(105, 7),
+                                     batch_size=105,
+                                     num_epochs=27,
+                                     num_layers=4,
+                                     num_units_per_layer=(274, 882, 6095),
+                                     num_output_units=1,
+                                     dropout_per_layer=(0.29848005310479914, 0.9133299770027523, 0.5832905399945898),
+                                     dropout_output=0.9831436299733602,
+                                     learning_rate=0.6224122392867175,
+                                     solver='adagrad')
+
+        model.fit(X_train, y_train)
+        print("Model fitted")
+
+        predicted_probability_matrix = model.predict_proba(X_test)
+        predicted_probability_matrix[predicted_probability_matrix >= 0.5] = 1
+        predicted_probability_matrix[predicted_probability_matrix < 0.5] = 0
+        expected_labels = predicted_probability_matrix
+        predicted_labels = model.predict(X_test)[:, np.newaxis]
         accuracy = np.count_nonzero(y_test == predicted_labels)
         print(float(accuracy) / float(X_test.shape[0]))
 
