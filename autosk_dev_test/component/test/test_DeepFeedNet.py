@@ -2,6 +2,7 @@ import unittest
 import os
 
 from component.DeepFeedNet import DeepFeedNet
+from component.ConstrainedFeedNet import ConstrainedFeedNet
 from autosklearn.pipeline.util import _test_classifier, _test_classifier_predict_proba
 
 import sklearn.metrics
@@ -9,7 +10,15 @@ import numpy as np
 import theano.sparse as S
 
 
-class FeedForwardComponentTest(unittest.TestCase):
+class NetComponentTest(unittest.TestCase):
+    home_dir = os.environ['HOME']
+    dataset_dir = os.path.join(home_dir, 'workspace/datasets/dataset_728/')
+
+    X_train = np.load(dataset_dir + 'train.npy')
+    y_train = np.load(dataset_dir + 'train_labels.npy')
+    X_test = np.load(dataset_dir + 'test.npy')
+    y_test = np.load(dataset_dir + 'test_labels.npy')
+
     def test_default_configuration(self):
         for i in range(10):
             predictions, targets = _test_classifier(DeepFeedNet, dataset='iris')
@@ -18,15 +27,6 @@ class FeedForwardComponentTest(unittest.TestCase):
             #                       sklearn.metrics.accuracy_score(predictions, targets))
 
     def test_default_configuration_space(self):
-        home_dir = os.environ['HOME']
-        dataset_dir = os.path.join(home_dir, 'workspace/'
-                                             'master_arbeit/auto-deep/'
-                                             'datasets/dataset_728/')
-
-        X_train = np.load(dataset_dir + 'train.npy')
-        y_train = np.load(dataset_dir + 'train_labels.npy')
-        X_test = np.load(dataset_dir + 'test.npy')
-        y_test = np.load(dataset_dir + 'test_labels.npy')
 
         for i in range(10):
             configuration_space = DeepFeedNet.get_hyperparameter_search_space()
@@ -35,9 +35,9 @@ class FeedForwardComponentTest(unittest.TestCase):
             cls = DeepFeedNet(**{hp_name: default[hp_name] for hp_name in
                                default if default[hp_name] is not None})
 
-            cls = cls.fit(X_train, y_train)
-            prediction = cls.predict_proba(X_test)
-            print sklearn.metrics.log_loss(y_test, prediction)
+            cls = cls.fit(self.X_train, self.y_train)
+            prediction = cls.predict_proba(self.X_test)
+            print sklearn.metrics.log_loss(self.y_test, prediction)
 
             # TODO: Ask Matthias about the value
             # self.assertAlmostEqual(sklearn.metrics.log_loss(y_test, prediction),
@@ -69,3 +69,13 @@ class FeedForwardComponentTest(unittest.TestCase):
             prediction = cls.predict_proba(X_test)
             print sklearn.metrics.log_loss(y_test, prediction)
 
+    def test_constrained_default_configuration_space(self):
+        for i in range(10):
+            configuration_space = ConstrainedFeedNet.get_hyperparameter_search_space()
+            default = configuration_space.get_default_configuration()
+
+            kls = ConstrainedFeedNet(**{hp_name: default[hp_name] for hp_name in
+                                       default if default[hp_name] is not None})
+            kls.fit(self.X_train, self.y_train)
+            prediction = kls.predict(self.X_test)
+            print sklearn.metrics.log_loss(self.y_test, prediction)
