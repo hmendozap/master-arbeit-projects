@@ -9,7 +9,7 @@ from autosklearn.pipeline.components.base import AutoSklearnClassificationAlgori
 from component.DeepFeedNet import DeepFeedNet
 
 
-class ConstrainedFeedNet(DeepFeedNet, AutoSklearnClassificationAlgorithm):
+class ConstrainedFeedNet(DeepFeedNet):
 
     # Weak subtyping
     def __init__(self, number_updates, batch_size, num_layers, num_units_layer_1,
@@ -73,5 +73,71 @@ class ConstrainedFeedNet(DeepFeedNet, AutoSklearnClassificationAlgorithm):
         cs.add_hyperparameter(momentum)
         cs.add_hyperparameter(beta1)
         cs.add_hyperparameter(beta2)
+
+        return cs
+
+
+class AdamConstFeedNet(ConstrainedFeedNet):
+
+    @staticmethod
+    def get_hyperparameter_search_space(dataset_properties=None):
+        cs = ConstrainedFeedNet.get_hyperparameter_search_space()
+        solver = Constant(name='solver', value='adam')
+        cs.add_hyperparameter(solver)
+
+        return cs
+
+
+class SGDConstFeedNet(ConstrainedFeedNet):
+
+    @staticmethod
+    def get_hyperparameter_search_space(dataset_properties=None):
+        cs = ConstrainedFeedNet.get_hyperparameter_search_space()
+        solver = Constant(name='solver', value='sgd')
+        cs.add_hyperparameter(solver)
+
+        return cs
+
+
+class AdadeltaConstFeedNet(ConstrainedFeedNet):
+
+    @staticmethod
+    def get_hyperparameter_search_space(dataset_properties=None):
+        cs = ConstrainedFeedNet.get_hyperparameter_search_space()
+        solver = Constant(name='solver', value='adadelta')
+        cs.add_hyperparameter(solver)
+
+        return cs
+
+
+class AdagradConstFeedNet(ConstrainedFeedNet):
+
+    @staticmethod
+    def get_hyperparameter_search_space(dataset_properties=None):
+        cs = ConstrainedFeedNet.get_hyperparameter_search_space()
+        solver = Constant(name='solver', value='adagrad')
+        cs.add_hyperparameter(solver)
+
+        return cs
+
+
+class NesterovConstFeedNet(ConstrainedFeedNet):
+
+    @staticmethod
+    def get_hyperparameter_search_space(dataset_properties=None):
+        cs = ConstrainedFeedNet.get_hyperparameter_search_space()
+        solver = Constant(name='solver', value='nesterov')
+        cs.add_hyperparameter(solver)
+
+        return cs
+
+
+class MomentumConstFeedNet(ConstrainedFeedNet):
+
+    @staticmethod
+    def get_hyperparameter_search_space(dataset_properties=None):
+        cs = ConstrainedFeedNet.get_hyperparameter_search_space()
+        solver = Constant(name='solver', value='momentum')
+        cs.add_hyperparameter(solver)
 
         return cs
