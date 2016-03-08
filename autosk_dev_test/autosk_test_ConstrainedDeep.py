@@ -3,22 +3,27 @@
 import numpy as np
 from autosklearn.pipeline.components.classification import add_classifier
 import autosklearn.automl as autosk
-from component import ConstrainedFeedNet
+from component import AdamConstFeedNet
+from component import DeepFeedNet
 
-dataset_dir = '/home/mendozah/workspace/datasets/dataset_728/'
+# Use MNIST
+dataset_dir = '/data/aad/automl_data/openml/554_bac/'
+
+X_train = np.loadtxt(dataset_dir + 'train.data')
+y_train = np.loadtxt(dataset_dir + 'train.solution')
 
 # Load our training data
-X_train = np.load(dataset_dir + 'train.npy')
-y_train = np.load(dataset_dir + 'train_labels.npy')
+# X_train = np.load(dataset_dir + 'train.npy')
+# y_train = np.load(dataset_dir + 'train_labels.npy')
 
-add_classifier(ConstrainedFeedNet.ConstrainedFeedNet)
+add_classifier(AdamConstFeedNet)
 
 # Create model
 modl = autosk.AutoML(time_left_for_this_task=600, per_run_time_limit=90,
                      delete_tmp_folder_after_terminate=False,
                      tmp_dir='tmp/constr_nn', output_dir='tmp/autosk_out',
                      log_dir='tmp/autosk_log',
-                     include_estimators=['ConstrainedFeedNet'],
+                     include_estimators=['AdamConstFeedNet'],
                      include_preprocessors=['no_preprocessing'],
                      ensemble_size=0,
                      ensemble_nbest=0,
@@ -32,10 +37,13 @@ modl = autosk.AutoML(time_left_for_this_task=600, per_run_time_limit=90,
                      resampling_strategy='holdout',
                      resampling_strategy_arguments=None)
 
-modl.fit(X_train, y_train, dataset_name='Const_728')
+modl.fit(X_train, y_train, dataset_name='Constrained_MNIST')
 
-X_test = np.load(dataset_dir + 'test.npy')
-y_test = np.load(dataset_dir + 'test_labels.npy')
+# X_test = np.load(dataset_dir + 'test.npy')
+# y_test = np.load(dataset_dir + 'test_labels.npy')
+
+X_test = np.loadtxt(dataset_dir + 'test.data')
+y_test = np.loadtxt(dataset_dir + 'test.solution')
 
 try:
     tot_score = modl.score(X_test, y_test)

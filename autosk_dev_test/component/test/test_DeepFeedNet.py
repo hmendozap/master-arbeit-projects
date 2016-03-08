@@ -75,7 +75,10 @@ class NetComponentTest(unittest.TestCase):
             default = configuration_space.get_default_configuration()
 
             kls = ConstrainedFeedNet(**{hp_name: default[hp_name] for hp_name in
-                                       default if default[hp_name] is not None})
+                                     default if default[hp_name] is not None})
             kls.fit(self.X_train, self.y_train)
             prediction = kls.predict(self.X_test)
             print sklearn.metrics.log_loss(self.y_test, prediction)
+
+    def test_constrained_individual_configspace(self):
+        pass

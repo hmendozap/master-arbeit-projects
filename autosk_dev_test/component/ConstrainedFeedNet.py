@@ -1,11 +1,9 @@
 # -*- encoding: utf-8 -*-
 
-from HPOlibConfigSpace.hyperparameters import UniformIntegerHyperparameter, Constant, \
-                                              CategoricalHyperparameter,\
-                                              UniformFloatHyperparameter
 from HPOlibConfigSpace.configuration_space import ConfigurationSpace
+from HPOlibConfigSpace.hyperparameters import Constant, \
+    UniformFloatHyperparameter
 
-from autosklearn.pipeline.components.base import AutoSklearnClassificationAlgorithm
 from component.DeepFeedNet import DeepFeedNet
 
 
@@ -14,8 +12,8 @@ class ConstrainedFeedNet(DeepFeedNet):
     # Weak subtyping
     def __init__(self, number_updates, batch_size, num_layers, num_units_layer_1,
                  num_units_layer_2, dropout_layer_1, dropout_layer_2, dropout_output,
-                 std_layer_1, std_layer_2, learning_rate, solver, beta1, beta2,
-                 momentum=0.99, random_state=None):
+                 std_layer_1, std_layer_2, learning_rate, solver, beta1=0.9, beta2=0.9,
+                 rho=0.96, momentum=0.99, random_state=None):
         DeepFeedNet.__init__(self, number_updates, batch_size, num_layers, num_units_layer_1,
                              num_units_layer_2, num_units_layer_3=0, num_units_layer_4=0,
                              num_units_layer_5=0, num_units_layer_6=0,
@@ -23,8 +21,8 @@ class ConstrainedFeedNet(DeepFeedNet):
                              dropout_layer_3=0, dropout_layer_4=0,
                              dropout_layer_5=0, dropout_layer_6=0, dropout_output=dropout_output,
                              std_layer_1=std_layer_1, std_layer_2=std_layer_2, std_layer_3=0, std_layer_4=0,
-                             std_layer_5=0, std_layer_6=0, learning_rate=learning_rate, solver=solver,
-                             momentum=momentum, beta1=beta1, beta2=beta2, rho=0.95, random_state=random_state)
+                             std_layer_5=0, std_layer_6=0, learning_rate=learning_rate, solver='sgd',
+                             momentum=momentum, beta1=0.9, beta2=0.9, rho=0.95, random_state=random_state)
 
     @staticmethod
     def get_hyperparameter_search_space(dataset_properties=None):
@@ -32,7 +30,6 @@ class ConstrainedFeedNet(DeepFeedNet):
 
         # Fixed Architecture
         batch_size = Constant(name='batch_size', value=206)
-        solver = Constant(name='solver', value='adam')
         # TODO: Decimal library to work around floating point issue
         dropout_layer_1 = Constant(name='dropout_layer_1', value=0.02540390796)
         dropout_layer_2 = Constant(name='dropout_layer_2', value=0.07463115112)
@@ -50,17 +47,10 @@ class ConstrainedFeedNet(DeepFeedNet):
                                         default=0.01)
         momentum = UniformFloatHyperparameter("momentum", 0.3, 0.999,
                                               default=0.9)
-        beta1 = UniformFloatHyperparameter("beta1", 1e-4, 0.1,
-                                           log=True,
-                                           default=0.1)
-        beta2 = UniformFloatHyperparameter("beta2", 1e-4, 0.1,
-                                           log=True,
-                                           default=0.1)
 
         cs = ConfigurationSpace()
         cs.add_hyperparameter(batch_size)
         cs.add_hyperparameter(number_updates)
-        cs.add_hyperparameter(solver)
         cs.add_hyperparameter(num_layers)
         cs.add_hyperparameter(num_units_layer_1)
         cs.add_hyperparameter(num_units_layer_2)
@@ -71,19 +61,6 @@ class ConstrainedFeedNet(DeepFeedNet):
         cs.add_hyperparameter(std_layer_2)
         cs.add_hyperparameter(lr)
         cs.add_hyperparameter(momentum)
-        cs.add_hyperparameter(beta1)
-        cs.add_hyperparameter(beta2)
-
-        return cs
-
-
-class AdamConstFeedNet(ConstrainedFeedNet):
-
-    @staticmethod
-    def get_hyperparameter_search_space(dataset_properties=None):
-        cs = ConstrainedFeedNet.get_hyperparameter_search_space()
-        solver = Constant(name='solver', value='adam')
-        cs.add_hyperparameter(solver)
 
         return cs
 
@@ -94,17 +71,6 @@ class SGDConstFeedNet(ConstrainedFeedNet):
     def get_hyperparameter_search_space(dataset_properties=None):
         cs = ConstrainedFeedNet.get_hyperparameter_search_space()
         solver = Constant(name='solver', value='sgd')
-        cs.add_hyperparameter(solver)
-
-        return cs
-
-
-class AdadeltaConstFeedNet(ConstrainedFeedNet):
-
-    @staticmethod
-    def get_hyperparameter_search_space(dataset_properties=None):
-        cs = ConstrainedFeedNet.get_hyperparameter_search_space()
-        solver = Constant(name='solver', value='adadelta')
         cs.add_hyperparameter(solver)
 
         return cs
