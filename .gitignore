@@ -2,8 +2,6 @@
 utilities/binaries/
 num_run_*
 tmp/
-# Ignore datadir line
-autosk_dev_test/autosk_test_modified.py:7:10
 
 # csv that maybe too big
 *.csv
