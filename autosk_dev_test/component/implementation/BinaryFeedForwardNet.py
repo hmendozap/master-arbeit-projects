@@ -15,7 +15,8 @@ DEBUG = True
 
 
 def iterate_minibatches(inputs, targets, batch_size, shuffle=False):
-    assert inputs.shape[0] == targets.shape[0]
+    assert inputs.shape[0] == targets.shape[0],\
+           "The number of training points is not the same"
     if shuffle:
         indices = np.arange(inputs.shape[0])
         np.random.shuffle(indices)
@@ -124,7 +125,6 @@ class BinaryFeedForwardNet(object):
 
     def fit(self, X, y):
         for epoch in range(self.num_epochs):
-            # TODO: Add exception RaiseError in shape
             train_err = 0
             train_batches = 0
             for batch in iterate_minibatches(X, y, self.batch_size, shuffle=True):
@@ -139,7 +139,7 @@ class BinaryFeedForwardNet(object):
         return np.argmax(predictions, axis=1)
 
     def predict_proba(self, X, is_sparse=False):
-        # TODO: Add try-catch statements
+        # TODO: Add try-except statements
         if is_sparse:
             X = S.basic.as_sparse_or_tensor_variable(X)
         predictions = lasagne.layers.get_output(self.network, X, deterministic=True).eval()

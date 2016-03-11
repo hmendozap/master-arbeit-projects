@@ -81,4 +81,5 @@ class NetComponentTest(unittest.TestCase):
             print sklearn.metrics.log_loss(self.y_test, prediction)
 
     def test_constrained_individual_configspace(self):
+        # TODO: Test for fixed cs
         pass

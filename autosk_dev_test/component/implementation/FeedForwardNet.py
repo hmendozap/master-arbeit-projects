@@ -15,7 +15,8 @@ DEBUG = True
 
 
 def iterate_minibatches(inputs, targets, batchsize, shuffle=False):
-    assert inputs.shape[0] == targets.shape[0]
+    assert inputs.shape[0] == targets.shape[0],\
+           "The number of training points is not the same"
     if shuffle:
         indices = np.arange(inputs.shape[0])
         np.random.shuffle(indices)
@@ -32,7 +33,7 @@ class FeedForwardNet(object):
                  batch_size=100, num_layers=4, num_units_per_layer=(10, 10, 10),
                  dropout_per_layer=(0.5, 0.5, 0.5), std_per_layer=(0.005, 0.005, 0.005),
                  num_output_units=2, dropout_output=0.5, learning_rate=0.01,
-                 momentum=0.9, beta1=0.9, beta2=0.9,
+                 lambda2=1e-4, momentum=0.9, beta1=0.9, beta2=0.9,
                  rho=0.95, solver="sgd", num_epochs=2,
                  is_sparse=False):
 
@@ -46,6 +47,7 @@ class FeedForwardNet(object):
         self.std_per_layer = std_per_layer
         self.momentum = momentum
         self.learning_rate = learning_rate
+        self.lambda2 = lambda2
         self.beta1 = beta1
         self.beta2 = beta2
         self.rho = rho
@@ -54,9 +56,11 @@ class FeedForwardNet(object):
 
         # TODO: Add correct theano shape constructor
         if is_sparse:
-            input_var = S.csr_matrix('inputs', dtype='float32')
+            input_var = S.csr_matrix('inputs', dtype='float64')
         else:
-            input_var = T.dmatrix('inputs')
+            # dMatrix forces the tensor var to be of float64 and clashes
+            # with the THEANO_FLAGS in the cluster
+            input_var = T.matrix('inputs')
         target_var = T.lvector('targets')
         if DEBUG:
             print("... building network")
@@ -87,8 +91,11 @@ class FeedForwardNet(object):
         prediction = lasagne.layers.get_output(self.network)
         loss = lasagne.objectives.categorical_crossentropy(prediction,
                                                            target_var)
-        # Aggregate loss mean function
+        # Aggregate loss mean function with l2 Regularization on all layers' params
         loss = loss.mean()
+        l2_penalty = self.lambda2 * lasagne.regularization.regularize_network_params(
+            self.network, lasagne.regularization.l2)
+        loss += l2_penalty
         params = lasagne.layers.get_all_params(self.network, trainable=True)
 
         if solver == "nesterov":
@@ -117,16 +124,8 @@ class FeedForwardNet(object):
             updates = lasagne.updates.sgd(loss, params,
                                           learning_rate=self.learning_rate)
 
-        # valid_prediction = lasagne.layers.get_output(self.network,
-                                                     # deterministic=True)
-
-        # valid_loss = lasagne.objectives.categorical_accuracy(
-                                                        # valid_prediction,
-                                                        # target_var)
-        # valid_loss = valid_loss.mean()
-        # valid_acc = T.mean(T.eq(T.argmax(valid_prediction, axis=1),
-                                # target_var),
-                                # dtype=theano.config.floatX)
+        # Validation was removed, as auto-sklearn handles that, if this net
+        # is to be used independently, validation accuracy has to be included
 
         print("... compiling theano functions")
         self.train_fn = theano.function([input_var, target_var], loss,
@@ -135,7 +134,6 @@ class FeedForwardNet(object):
 
     def fit(self, X, y):
         for epoch in range(self.num_epochs):
-            # TODO: Add exception RaiseError in shape
             train_err = 0
             train_batches = 0
             for batch in iterate_minibatches(X, y, self.batch_size, shuffle=True):
@@ -152,7 +150,7 @@ class FeedForwardNet(object):
         return np.argmax(predictions, axis=1)
 
     def predict_proba(self, X, is_sparse=False):
-        # TODO: Add try-catch statements
+        # TODO: Add try-except statements
         if is_sparse:
             X = S.basic.as_sparse_or_tensor_variable(X)
         predictions = lasagne.layers.get_output(self.network, X, deterministic=True).eval()

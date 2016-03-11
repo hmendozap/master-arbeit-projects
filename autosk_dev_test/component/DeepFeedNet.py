@@ -20,13 +20,14 @@ class DeepFeedNet(AutoSklearnClassificationAlgorithm):
                  num_units_layer_5, num_units_layer_6, dropout_layer_1, dropout_layer_2, dropout_layer_3, dropout_layer_4,
                  dropout_layer_5, dropout_layer_6, dropout_output,
                  std_layer_1, std_layer_2, std_layer_3, std_layer_4,
-                 std_layer_5, std_layer_6, learning_rate, solver,
+                 std_layer_5, std_layer_6, learning_rate, solver, lambda2,
                  momentum=0.99, beta1=0.9, beta2=0.9, rho=0.95, random_state=None):
         self.number_updates = number_updates
         self.batch_size = batch_size
         self.num_layers = num_layers
         self.dropout_output = dropout_output
         self.learning_rate = learning_rate
+        self.lambda2 = lambda2
         self.momentum = momentum
         # Added 1-beta due to change in config space
         self.beta1 = 1-beta1
@@ -56,7 +57,7 @@ class DeepFeedNet(AutoSklearnClassificationAlgorithm):
         m_issparse = sp.issparse(X)
 
         # Calculate the number of epochs
-        # TODO: Calculate correctly how updates influence number_updates=self.number_updates,
+        # TODO: Calculate correctly how updates influence
         epoch = (self.number_updates * self.batch_size)//X.shape[0]
         number_epochs = max(2, epoch)
         # number_epochs = min(max(2, epoch), 30)
@@ -70,6 +71,7 @@ class DeepFeedNet(AutoSklearnClassificationAlgorithm):
                                                        num_output_units=num_output_units,
                                                        dropout_output=self.dropout_output,
                                                        learning_rate=self.learning_rate,
+                                                       lambda2=self.lambda2,
                                                        momentum=self.momentum,
                                                        beta1=self.beta1,
                                                        beta2=self.beta2,
@@ -192,6 +194,10 @@ class DeepFeedNet(AutoSklearnClassificationAlgorithm):
         lr = UniformFloatHyperparameter("learning_rate", 1e-6, 1, log=True,
                                         default=0.01)
 
+        # Todo: Check lambda2 parameter bounds
+        l2 = UniformFloatHyperparameter("lambda2", 1e-6, 1e-2, log=True,
+                                        default=1e-3)
+
         momentum = UniformFloatHyperparameter("momentum", 0.3, 0.999,
                                               default=0.9)
 
@@ -256,6 +262,7 @@ class DeepFeedNet(AutoSklearnClassificationAlgorithm):
         cs.add_hyperparameter(std_layer_5)
         cs.add_hyperparameter(std_layer_6)
         cs.add_hyperparameter(lr)
+        cs.add_hyperparameter(l2)
         cs.add_hyperparameter(solver)
         cs.add_hyperparameter(momentum)
         cs.add_hyperparameter(beta1)

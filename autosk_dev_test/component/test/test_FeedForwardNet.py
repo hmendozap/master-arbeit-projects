@@ -12,18 +12,16 @@ class TestFeedForwardNet(unittest.TestCase):
         NN Feed Forward architecture on Theano and Lasagne
         """
 
-        dataset_dir = '/home/hmendoza/workspace/master_arbeit/' \
-                      'auto-deep/datasets/dataset_728/'
+        dataset_dir = '/home/mendozah/workspace/' \
+                      'datasets/dataset_728/'
 
-        # Take training and data from binary classification
         X_train = np.load(dataset_dir + 'train.npy')
         y_train = np.load(dataset_dir + 'train_labels.npy')
         X_test = np.load(dataset_dir + 'test.npy')
         y_test = np.load(dataset_dir + 'test_labels.npy')
 
-        # The input shape is using the batch size
-        model = FeedForwardNet(input_shape=(50, 7), batch_size=50,
-                               num_epochs=2)
+        model = FeedForwardNet(input_shape=(100, 7), batch_size=100,
+                               num_epochs=20)
 
         model.fit(X_train, y_train)
         print("Model fitted")
