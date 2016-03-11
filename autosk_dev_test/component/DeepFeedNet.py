@@ -21,12 +21,15 @@ class DeepFeedNet(AutoSklearnClassificationAlgorithm):
                  dropout_layer_5, dropout_layer_6, dropout_output,
                  std_layer_1, std_layer_2, std_layer_3, std_layer_4,
                  std_layer_5, std_layer_6, learning_rate, solver, lambda2,
-                 momentum=0.99, beta1=0.9, beta2=0.9, rho=0.95, random_state=None):
+                 momentum=0.99, beta1=0.9, beta2=0.9, rho=0.95,
+                 lr_policy='fixed', gamma=0.01, power=1.0, epoch_step=1,
+                 random_state=None):
         self.number_updates = number_updates
         self.batch_size = batch_size
         self.num_layers = num_layers
         self.dropout_output = dropout_output
         self.learning_rate = learning_rate
+        self.lr_policy = lr_policy
         self.lambda2 = lambda2
         self.momentum = momentum
         # Added 1-beta due to change in config space
@@ -34,6 +37,9 @@ class DeepFeedNet(AutoSklearnClassificationAlgorithm):
         self.beta2 = 1-beta2
         self.rho = rho
         self.solver = solver
+        self.gamma = gamma
+        self.power = power
+        self.epoch_step = epoch_step
 
         self.num_units_per_layer = []
         self.dropout_per_layer = []
@@ -71,6 +77,7 @@ class DeepFeedNet(AutoSklearnClassificationAlgorithm):
                                                        num_output_units=num_output_units,
                                                        dropout_output=self.dropout_output,
                                                        learning_rate=self.learning_rate,
+                                                       lr_policy=self.lr_policy,
                                                        lambda2=self.lambda2,
                                                        momentum=self.momentum,
                                                        beta1=self.beta1,
@@ -78,6 +85,9 @@ class DeepFeedNet(AutoSklearnClassificationAlgorithm):
                                                        rho=self.rho,
                                                        solver=self.solver,
                                                        num_epochs=number_epochs,
+                                                       gamma=self.gamma,
+                                                       power=self.power,
+                                                       epoch_step=self.epoch_step,
                                                        is_sparse=m_issparse)
         self.estimator.fit(X, y)
         return self
@@ -237,6 +247,22 @@ class DeepFeedNet(AutoSklearnClassificationAlgorithm):
                                            default=0.1)
         rho = UniformFloatHyperparameter("rho", 0.0, 1.0, default=0.95)
 
+        lr_policy = CategoricalHyperparameter(name="lr_policy",
+                                              choices=['fixed', 'inv', 'exp', 'step'],
+                                              default='fixed')
+
+        gamma = UniformFloatHyperparameter("gamma",
+                                           1e-1, 1e-3,
+                                           default=1e-2)
+
+        power = UniformFloatHyperparameter("power",
+                                           0.0, 1.0,
+                                           default=0.5)
+
+        epoch_step = UniformIntegerHyperparameter("epoch_step",
+                                                  2, 10,
+                                                  default=2)
+
         cs = ConfigurationSpace()
         # cs.add_hyperparameter(number_epochs)
         cs.add_hyperparameter(number_updates)
@@ -268,14 +294,25 @@ class DeepFeedNet(AutoSklearnClassificationAlgorithm):
         cs.add_hyperparameter(beta1)
         cs.add_hyperparameter(beta2)
         cs.add_hyperparameter(rho)
+        cs.add_hyperparameter(lr_policy)
+        cs.add_hyperparameter(gamma)
+        cs.add_hyperparameter(power)
+        cs.add_hyperparameter(epoch_step)
 
         momentum_depends_on_solver = InCondition(momentum, solver, ["sgd", "momentum", "nesterov"])
         beta1_depends_on_solver = EqualsCondition(beta1, solver, "adam")
         beta2_depends_on_solver = EqualsCondition(beta2, solver, "adam")
         rho_depends_on_solver = EqualsCondition(rho, solver, "adadelta")
+        gamma_depends_on_policy = InCondition(child=gamma, parent=lr_policy,
+                                              values=['inv', 'exp', 'step'])
+        power_depends_on_policy = InCondition(power, lr_policy, ['inv'])
+        epoch_step_depends_on_policy = InCondition(epoch_step, lr_policy, ['step'])
         cs.add_condition(beta1_depends_on_solver)
         cs.add_condition(beta2_depends_on_solver)
         cs.add_condition(rho_depends_on_solver)
         cs.add_condition(momentum_depends_on_solver)
+        cs.add_condition(gamma_depends_on_policy)
+        cs.add_condition(power_depends_on_policy)
+        cs.add_condition(epoch_step_depends_on_policy)
 
         return cs

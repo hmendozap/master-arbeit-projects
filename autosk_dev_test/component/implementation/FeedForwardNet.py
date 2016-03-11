@@ -35,6 +35,7 @@ class FeedForwardNet(object):
                  num_output_units=2, dropout_output=0.5, learning_rate=0.01,
                  lambda2=1e-4, momentum=0.9, beta1=0.9, beta2=0.9,
                  rho=0.95, solver="sgd", num_epochs=2,
+                 lr_policy="fixed", gamma=0.01, power=1.0, epoch_step=1,
                  is_sparse=False):
 
         self.batch_size = batch_size
@@ -53,8 +54,15 @@ class FeedForwardNet(object):
         self.rho = rho
         # self.number_updates = number_updates
         self.num_epochs = num_epochs
+        self.lr_policy = lr_policy
+        self.gamma = gamma
+        if power > 1.0:
+            print('hyperparameter must be between 0 and 1')
+            self.power = 1.0
+        else:
+            self.power = power
+        self.epoch_step = epoch_step
 
-        # TODO: Add correct theano shape constructor
         if is_sparse:
             input_var = S.csr_matrix('inputs', dtype='float64')
         else:
@@ -132,6 +140,28 @@ class FeedForwardNet(object):
                                         updates=updates,
                                         allow_input_downcast=True)
 
+        # policy = self.policy_function()
+        # self.policy_update = theano.function([self.learning_rate], policy)
+
+    def policy_function(self, n_epoch):
+        lr_base = self.learning_rate
+        if DEBUG:
+            print("lr is : {:.10f}".format(lr_base))
+        if self.lr_policy == "inv":
+            decay = np.power((1 + self.gamma * n_epoch), (-self.power))
+        elif self.lr_policy == "exp":
+            decay = np.power(self.gamma, n_epoch)
+        elif self.lr_policy == "step":
+            if ((n_epoch+1) % self.epoch_step) == 0.0:
+                decay = np.power(self.gamma, (np.floor((n_epoch+1) / float(self.epoch_step))))
+            else:
+                decay = 1
+        elif self.lr_policy == "fixed":
+            decay = 1
+
+        self.learning_rate = lr_base * decay
+        #model.learning_rate.set_value(lr_base * decay)
+
     def fit(self, X, y):
         for epoch in range(self.num_epochs):
             train_err = 0
@@ -140,6 +170,7 @@ class FeedForwardNet(object):
                 inputs, targets = batch
                 train_err += self.train_fn(inputs, targets)
                 train_batches += 1
+            self.policy_function(epoch)
             # print("  training error:\t\t{:.6f}".format(train_err))
             # print("  training batches:\t\t{:.6f}".format(train_batches))
             print("  training loss:\t\t{:.6f}".format(train_err / train_batches))

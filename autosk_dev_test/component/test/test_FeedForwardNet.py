@@ -6,36 +6,62 @@ from component.implementation.BinaryFeedForwardNet import BinaryFeedForwardNet
 
 
 class TestFeedForwardNet(unittest.TestCase):
+    dataset_dir = '/home/mendozah/workspace/' \
+                      'datasets/dataset_728/'
+
+    X_train = np.load(dataset_dir + 'train.npy')
+    y_train = np.load(dataset_dir + 'train_labels.npy')
+    X_test = np.load(dataset_dir + 'test.npy')
+    y_test = np.load(dataset_dir + 'test_labels.npy')
+
     def test_initial_feed_implementation(self):
         """
         Test of initial implementation of simple run in
         NN Feed Forward architecture on Theano and Lasagne
         """
-
-        dataset_dir = '/home/mendozah/workspace/' \
-                      'datasets/dataset_728/'
-
-        X_train = np.load(dataset_dir + 'train.npy')
-        y_train = np.load(dataset_dir + 'train_labels.npy')
-        X_test = np.load(dataset_dir + 'test.npy')
-        y_test = np.load(dataset_dir + 'test_labels.npy')
-
         model = FeedForwardNet(input_shape=(100, 7), batch_size=100,
+                               learning_rate=0.1,
                                num_epochs=20)
 
-        model.fit(X_train, y_train)
+        model.fit(self.X_train, self.y_train)
         print("Model fitted")
 
-        predicted_probability_matrix = model.predict_proba(X_test)
+        predicted_probability_matrix = model.predict_proba(self.X_test)
         expected_labels = np.argmax(predicted_probability_matrix, axis=1)
-        predicted_labels = model.predict(X_test)
-        accuracy = np.count_nonzero(y_test == predicted_labels)
-        print(float(accuracy) / float(X_test.shape[0]))
+        predicted_labels = model.predict(self.X_test)
+        accuracy = np.count_nonzero(self.y_test == predicted_labels)
+        print(float(accuracy) / float(self.X_test.shape[0]))
 
         self.assertTrue((predicted_labels == expected_labels).all(), msg="Failed predicted probability")
         self.assertTrue((1 - predicted_probability_matrix.sum(axis=1) < 1e-3).all())
 
+    def test_lr_policies(self):
+        model = FeedForwardNet(input_shape=(100, 7), batch_size=100,
+                               learning_rate=0.1,
+                               solver='adam',
+                               lr_policy='step',
+                               gamma=0.1,
+                               power=0.75,
+                               epoch_step=4,
+                               num_epochs=20)
+        model.fit(self.X_train, self.y_train)
+        print("Model fitted")
+
+        predicted_probability_matrix = model.predict_proba(self.X_test)
+        expected_labels = np.argmax(predicted_probability_matrix, axis=1)
+        predicted_labels = model.predict(self.X_test)
+        accuracy = np.count_nonzero(self.y_test == predicted_labels)
+        print(float(accuracy) / float(self.X_test.shape[0]))
+
+        # TODO: Add asserts and end lr calculations
+        # self.assertTrue(0.1 == model.learning_rate)
+        self.assertTrue((predicted_labels == expected_labels).all(), msg="Failed predicted probability")
+        self.assertTrue((1 - predicted_probability_matrix.sum(axis=1) < 1e-3).all())
+
+        pass
+
     def test_binary_feed_implementation(self):
+
         """
         Test of binary (logistic) implementation of
         feed forward neural network with sigmodial output
