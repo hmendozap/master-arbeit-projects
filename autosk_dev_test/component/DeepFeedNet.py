@@ -127,7 +127,9 @@ class DeepFeedNet(AutoSklearnClassificationAlgorithm):
 
         solver_choices = ["adam", "adadelta", "adagrad", "sgd", "momentum", "nesterov"]
 
-        layer_choices = [i for i in range(2, 6)]
+        policy_choices = ['fixed', 'inv', 'exp', 'step']
+
+        layer_choices = [i for i in range(2, 7)]
 
         batch_size = UniformIntegerHyperparameter("batch_size", 100, 1000,
                                                   log=True,
@@ -142,7 +144,7 @@ class DeepFeedNet(AutoSklearnClassificationAlgorithm):
 
         num_layers = CategoricalHyperparameter("num_layers",
                                                choices=layer_choices,
-                                               default=3)
+                                               default=4)
 
         num_units_layer_1 = UniformIntegerHyperparameter("num_units_layer_1",
                                                          10, 6144,
@@ -248,11 +250,11 @@ class DeepFeedNet(AutoSklearnClassificationAlgorithm):
         rho = UniformFloatHyperparameter("rho", 0.0, 1.0, default=0.95)
 
         lr_policy = CategoricalHyperparameter(name="lr_policy",
-                                              choices=['fixed', 'inv', 'exp', 'step'],
+                                              choices=policy_choices,
                                               default='fixed')
 
-        gamma = UniformFloatHyperparameter("gamma",
-                                           1e-1, 1e-3,
+        gamma = UniformFloatHyperparameter(name="gamma",
+                                           lower=1e-3, upper=1e-1,
                                            default=1e-2)
 
         power = UniformFloatHyperparameter("power",
@@ -299,14 +301,24 @@ class DeepFeedNet(AutoSklearnClassificationAlgorithm):
         cs.add_hyperparameter(power)
         cs.add_hyperparameter(epoch_step)
 
+        # Condition layers parameter on layer choice
+        layer_2_condition = InCondition(num_units_layer_2, num_layers, [3, 4, 5, 6])
+        layer_3_condition = InCondition(num_units_layer_3, num_layers, [4, 5, 6])
+        layer_4_condition = InCondition(num_units_layer_4, num_layers, [5, 6])
+        layer_5_condition = InCondition(num_units_layer_5, num_layers, [6])
+        cs.add_condition(layer_2_condition)
+        cs.add_condition(layer_3_condition)
+        cs.add_condition(layer_4_condition)
+        cs.add_condition(layer_5_condition)
+
         momentum_depends_on_solver = InCondition(momentum, solver, ["sgd", "momentum", "nesterov"])
         beta1_depends_on_solver = EqualsCondition(beta1, solver, "adam")
         beta2_depends_on_solver = EqualsCondition(beta2, solver, "adam")
         rho_depends_on_solver = EqualsCondition(rho, solver, "adadelta")
         gamma_depends_on_policy = InCondition(child=gamma, parent=lr_policy,
                                               values=['inv', 'exp', 'step'])
-        power_depends_on_policy = InCondition(power, lr_policy, ['inv'])
-        epoch_step_depends_on_policy = InCondition(epoch_step, lr_policy, ['step'])
+        power_depends_on_policy = EqualsCondition(power, lr_policy, 'inv')
+        epoch_step_depends_on_policy = EqualsCondition(epoch_step, lr_policy, 'step')
         cs.add_condition(beta1_depends_on_solver)
         cs.add_condition(beta2_depends_on_solver)
         cs.add_condition(rho_depends_on_solver)

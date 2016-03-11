@@ -39,7 +39,7 @@ class TestFeedForwardNet(unittest.TestCase):
         model = FeedForwardNet(input_shape=(100, 7), batch_size=100,
                                learning_rate=0.1,
                                solver='adam',
-                               lr_policy='step',
+                               lr_policy='fixed',
                                gamma=0.1,
                                power=0.75,
                                epoch_step=4,
