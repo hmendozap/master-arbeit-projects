@@ -5,7 +5,7 @@ from autosklearn.pipeline.components.classification import add_classifier
 import autosklearn.automl as autosk
 from component import DeepFeedNet
 
-dataset_dir = '/home/mendozah/workspace/datasets/dataset_728/'
+dataset_dir = 
 
 # Load our training data
 X_train = np.load(dataset_dir + 'train.npy')
