@@ -302,27 +302,33 @@ class DeepFeedNet(AutoSklearnClassificationAlgorithm):
         cs.add_hyperparameter(epoch_step)
 
         # Condition layers parameter on layer choice
-        layer_2_condition = InCondition(num_units_layer_2, num_layers, [3, 4, 5, 6])
-        layer_3_condition = InCondition(num_units_layer_3, num_layers, [4, 5, 6])
-        layer_4_condition = InCondition(num_units_layer_4, num_layers, [5, 6])
-        layer_5_condition = InCondition(num_units_layer_5, num_layers, [6])
-        cs.add_condition(layer_2_condition)
-        cs.add_condition(layer_3_condition)
-        cs.add_condition(layer_4_condition)
-        cs.add_condition(layer_5_condition)
+        #layer_2_condition = InCondition(num_units_layer_2, num_layers, [3, 4, 5, 6])
+        #layer_3_condition = InCondition(num_units_layer_3, num_layers, [4, 5, 6])
+        #layer_4_condition = InCondition(num_units_layer_4, num_layers, [5, 6])
+        #layer_5_condition = InCondition(num_units_layer_5, num_layers, [6])
+        #cs.add_condition(layer_2_condition)
+        #cs.add_condition(layer_3_condition)
+        #cs.add_condition(layer_4_condition)
+        #cs.add_condition(layer_5_condition)
 
-        momentum_depends_on_solver = InCondition(momentum, solver, ["sgd", "momentum", "nesterov"])
+        momentum_depends_on_solver = InCondition(momentum, solver,
+                                                 values=["sgd", "momentum", "nesterov"])
         beta1_depends_on_solver = EqualsCondition(beta1, solver, "adam")
         beta2_depends_on_solver = EqualsCondition(beta2, solver, "adam")
         rho_depends_on_solver = EqualsCondition(rho, solver, "adadelta")
+        lr_policy_depends_on_solver = InCondition(lr_policy, solver,
+                                                  ["adadelta", "adagrad", "sgd",
+                                                   "momentum", "nesterov"])
         gamma_depends_on_policy = InCondition(child=gamma, parent=lr_policy,
                                               values=['inv', 'exp', 'step'])
         power_depends_on_policy = EqualsCondition(power, lr_policy, 'inv')
         epoch_step_depends_on_policy = EqualsCondition(epoch_step, lr_policy, 'step')
+
+        cs.add_condition(momentum_depends_on_solver)
         cs.add_condition(beta1_depends_on_solver)
         cs.add_condition(beta2_depends_on_solver)
         cs.add_condition(rho_depends_on_solver)
-        cs.add_condition(momentum_depends_on_solver)
+        cs.add_condition(lr_policy_depends_on_solver)
         cs.add_condition(gamma_depends_on_policy)
         cs.add_condition(power_depends_on_policy)
         cs.add_condition(epoch_step_depends_on_policy)

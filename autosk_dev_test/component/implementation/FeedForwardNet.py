@@ -47,7 +47,8 @@ class FeedForwardNet(object):
         self.dropout_output = dropout_output
         self.std_per_layer = std_per_layer
         self.momentum = momentum
-        self.learning_rate = learning_rate
+        self.lr = learning_rate
+        self.learning_rate = T.scalar('lr', dtype=theano.config.floatX)
         self.lambda2 = lambda2
         self.beta1 = beta1
         self.beta2 = beta2
@@ -134,19 +135,20 @@ class FeedForwardNet(object):
 
         # Validation was removed, as auto-sklearn handles that, if this net
         # is to be used independently, validation accuracy has to be included
-
-        print("... compiling theano functions")
-        self.train_fn = theano.function([input_var, target_var], loss,
+        if DEBUG:
+            print("... compiling theano functions")
+        self.train_fn = theano.function([input_var, target_var, self.learning_rate], loss,
                                         updates=updates,
                                         allow_input_downcast=True)
 
         # policy = self.policy_function()
+        # theano.function([inputs], symbolic expression to be calculated, updates=shared_variables)
         # self.policy_update = theano.function([self.learning_rate], policy)
 
     def policy_function(self, n_epoch):
-        lr_base = self.learning_rate
+        lr_base = self.lr
         if DEBUG:
-            print("lr is : {:.10f}".format(lr_base))
+            print("lr is : {:.3e}".format(lr_base))
         if self.lr_policy == "inv":
             decay = np.power((1 + self.gamma * n_epoch), (-self.power))
         elif self.lr_policy == "exp":
@@ -159,7 +161,7 @@ class FeedForwardNet(object):
         elif self.lr_policy == "fixed":
             decay = 1
 
-        self.learning_rate = lr_base * decay
+        self.lr = lr_base * decay
         #model.learning_rate.set_value(lr_base * decay)
 
     def fit(self, X, y):
@@ -168,12 +170,13 @@ class FeedForwardNet(object):
             train_batches = 0
             for batch in iterate_minibatches(X, y, self.batch_size, shuffle=True):
                 inputs, targets = batch
-                train_err += self.train_fn(inputs, targets)
+                train_err += self.train_fn(inputs, targets, self.lr)
                 train_batches += 1
             self.policy_function(epoch)
             # print("  training error:\t\t{:.6f}".format(train_err))
             # print("  training batches:\t\t{:.6f}".format(train_batches))
-            print("  training loss:\t\t{:.6f}".format(train_err / train_batches))
+            # print("  training loss:\t\t{:.6f}".format(train_err / train_batches))
+        print("  final loss:\t\t{:.6f}".format(train_err / train_batches))
         return self
 
     def predict(self, X, is_sparse=False):
