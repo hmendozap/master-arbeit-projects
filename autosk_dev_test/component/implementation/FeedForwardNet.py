@@ -47,8 +47,7 @@ class FeedForwardNet(object):
         self.dropout_output = dropout_output
         self.std_per_layer = std_per_layer
         self.momentum = momentum
-        self.lr = learning_rate
-        self.learning_rate = T.scalar('lr', dtype=theano.config.floatX)
+        self.learning_rate = learning_rate
         self.lambda2 = lambda2
         self.beta1 = beta1
         self.beta2 = beta2
@@ -107,9 +106,13 @@ class FeedForwardNet(object):
         loss += l2_penalty
         params = lasagne.layers.get_all_params(self.network, trainable=True)
 
+        # Create the symbolic scalar lr for loss & updates function
+        # EXCEPT for adam as it creates its own lr steps (only pass initial lr)
+        lr_scalar = T.scalar('lr', dtype=theano.config.floatX)
+
         if solver == "nesterov":
             updates = lasagne.updates.nesterov_momentum(loss, params,
-                                                        learning_rate=self.learning_rate,
+                                                        learning_rate=lr_scalar,
                                                         momentum=self.momentum)
         elif solver == "adam":
             updates = lasagne.updates.adam(loss, params,
@@ -117,52 +120,49 @@ class FeedForwardNet(object):
                                            beta1=self.beta1, beta2=self.beta2)
         elif solver == "adadelta":
             updates = lasagne.updates.adadelta(loss, params,
-                                               learning_rate=self.learning_rate,
+                                               learning_rate=lr_scalar,
                                                rho=self.rho)
         elif solver == "adagrad":
             updates = lasagne.updates.adagrad(loss, params,
-                                              learning_rate=self.learning_rate)
+                                              learning_rate=lr_scalar)
         elif solver == "sgd":
             updates = lasagne.updates.sgd(loss, params,
-                                          learning_rate=self.learning_rate)
+                                          learning_rate=lr_scalar)
         elif solver == "momentum":
             updates = lasagne.updates.momentum(loss, params,
-                                               learning_rate=self.learning_rate,
+                                               learning_rate=lr_scalar,
                                                momentum=self.momentum)
         else:
             updates = lasagne.updates.sgd(loss, params,
-                                          learning_rate=self.learning_rate)
+                                          learning_rate=lr_scalar)
 
         # Validation was removed, as auto-sklearn handles that, if this net
         # is to be used independently, validation accuracy has to be included
         if DEBUG:
             print("... compiling theano functions")
-        self.train_fn = theano.function([input_var, target_var, self.learning_rate], loss,
+        self.train_fn = theano.function([input_var, target_var, lr_scalar],
+                                        loss,
                                         updates=updates,
-                                        allow_input_downcast=True)
+                                        allow_input_downcast=True,
+                                        on_unused_input='warn')
+        self.update_function = self.policy_function()
 
-        # policy = self.policy_function()
-        # theano.function([inputs], symbolic expression to be calculated, updates=shared_variables)
-        # self.policy_update = theano.function([self.learning_rate], policy)
+    def policy_function(self):
+        epoch, gm, powr, step = T.scalars('epoch', 'gm', 'powr', 'step')
+        if self.lr_policy == 'inv':
+            decay = T.power(1+gm*epoch, -powr)
+        elif self.lr_policy == 'exp':
+            decay = gm ** epoch
+        elif self.lr_policy == 'step':
+            decay = T.switch(cond=T.eq(T.mod_check(epoch, step), 0),
+                             ift=T.power(gm, T.floor_div(epoch, step)),
+                             iff=1.0)
+        elif self.lr_policy == 'fixed':
+            decay = T.constant(1.0, name='fixed', dtype=theano.config.floatX)
 
-    def policy_function(self, n_epoch):
-        lr_base = self.lr
-        if DEBUG:
-            print("lr is : {:.3e}".format(lr_base))
-        if self.lr_policy == "inv":
-            decay = np.power((1 + self.gamma * n_epoch), (-self.power))
-        elif self.lr_policy == "exp":
-            decay = np.power(self.gamma, n_epoch)
-        elif self.lr_policy == "step":
-            if ((n_epoch+1) % self.epoch_step) == 0.0:
-                decay = np.power(self.gamma, (np.floor((n_epoch+1) / float(self.epoch_step))))
-            else:
-                decay = 1
-        elif self.lr_policy == "fixed":
-            decay = 1
-
-        self.lr = lr_base * decay
-        #model.learning_rate.set_value(lr_base * decay)
+        return theano.function([gm, epoch, powr, step],
+                               decay,
+                               on_unused_input='ignore')
 
     def fit(self, X, y):
         for epoch in range(self.num_epochs):
@@ -170,13 +170,12 @@ class FeedForwardNet(object):
             train_batches = 0
             for batch in iterate_minibatches(X, y, self.batch_size, shuffle=True):
                 inputs, targets = batch
-                train_err += self.train_fn(inputs, targets, self.lr)
+                train_err += self.train_fn(inputs, targets, self.learning_rate)
                 train_batches += 1
-            self.policy_function(epoch)
-            # print("  training error:\t\t{:.6f}".format(train_err))
-            # print("  training batches:\t\t{:.6f}".format(train_batches))
-            # print("  training loss:\t\t{:.6f}".format(train_err / train_batches))
-        print("  final loss:\t\t{:.6f}".format(train_err / train_batches))
+            decay = self.update_function(self.gamma, epoch+1,
+                                         self.power, self.epoch_step)
+            self.learning_rate *= decay
+            print("  training loss:\t\t{:.6f}".format(train_err / train_batches))
         return self
 
     def predict(self, X, is_sparse=False):
