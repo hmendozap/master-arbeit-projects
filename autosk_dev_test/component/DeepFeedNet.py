@@ -16,17 +16,21 @@ from implementation import FeedForwardNet
 class DeepFeedNet(AutoSklearnClassificationAlgorithm):
 
     def __init__(self, number_updates, batch_size, num_layers, num_units_layer_1,
-                 num_units_layer_2, num_units_layer_3, num_units_layer_4,
-                 num_units_layer_5, num_units_layer_6, dropout_layer_1, dropout_layer_2, dropout_layer_3, dropout_layer_4,
-                 dropout_layer_5, dropout_layer_6, dropout_output,
-                 std_layer_1, std_layer_2, std_layer_3, std_layer_4,
-                 std_layer_5, std_layer_6, learning_rate, solver, lambda2,
+                 dropout_layer_1, dropout_output, std_layer_1,
+                 learning_rate, solver, lambda2,
+                 num_units_layer_2=10, num_units_layer_3=10, num_units_layer_4=10,
+                 num_units_layer_5=10, num_units_layer_6=10,
+                 dropout_layer_2=0.5, dropout_layer_3=0.5, dropout_layer_4=0.5,
+                 dropout_layer_5=0.5, dropout_layer_6=0.5,
+                 std_layer_2=0.005, std_layer_3=0.005, std_layer_4=0.005,
+                 std_layer_5=0.005, std_layer_6=0.005,
                  momentum=0.99, beta1=0.9, beta2=0.9, rho=0.95,
                  lr_policy='fixed', gamma=0.01, power=1.0, epoch_step=1,
                  random_state=None):
         self.number_updates = number_updates
         self.batch_size = batch_size
-        self.num_layers = num_layers
+        # Hacky implementation of condition on number of layers
+        self.num_layers = ord(num_layers) - ord('a')
         self.dropout_output = dropout_output
         self.learning_rate = learning_rate
         self.lr_policy = lr_policy
@@ -44,7 +48,7 @@ class DeepFeedNet(AutoSklearnClassificationAlgorithm):
         self.num_units_per_layer = []
         self.dropout_per_layer = []
         self.std_per_layer = []
-        for i in range(1, num_layers):
+        for i in range(1, self.num_layers):
             self.num_units_per_layer.append(int(eval("num_units_layer_" + str(i))))
             self.dropout_per_layer.append(float(eval("dropout_layer_" + str(i))))
             self.std_per_layer.append(float(eval("std_layer_" + str(i))))
@@ -63,7 +67,7 @@ class DeepFeedNet(AutoSklearnClassificationAlgorithm):
         m_issparse = sp.issparse(X)
 
         # Calculate the number of epochs
-        # TODO: Calculate correctly how updates influence
+        # TODO: Calculate correctly how updates influence the model
         epoch = (self.number_updates * self.batch_size)//X.shape[0]
         number_epochs = max(2, epoch)
         # number_epochs = min(max(2, epoch), 30)
@@ -129,7 +133,9 @@ class DeepFeedNet(AutoSklearnClassificationAlgorithm):
 
         policy_choices = ['fixed', 'inv', 'exp', 'step']
 
-        layer_choices = [i for i in range(2, 7)]
+        # Hacky way to condition layers params based on the number of layers
+        # 'c'=2, 'd'=3, 'e'=4 ,'f'=5, 'g'=6, 'h'=7
+        layer_choices = [chr(i) for i in xrange(ord('c'), ord('i'))]
 
         batch_size = UniformIntegerHyperparameter("batch_size", 100, 1000,
                                                   log=True,
@@ -144,7 +150,7 @@ class DeepFeedNet(AutoSklearnClassificationAlgorithm):
 
         num_layers = CategoricalHyperparameter("num_layers",
                                                choices=layer_choices,
-                                               default=4)
+                                               default='e')
 
         num_units_layer_1 = UniformIntegerHyperparameter("num_units_layer_1",
                                                          10, 6144,
@@ -239,7 +245,7 @@ class DeepFeedNet(AutoSklearnClassificationAlgorithm):
 
         solver = CategoricalHyperparameter(name="solver",
                                            choices=solver_choices,
-                                           default="adagrad")
+                                           default="sgd")
 
         beta1 = UniformFloatHyperparameter("beta1", 1e-4, 0.1,
                                            log=True,
@@ -301,15 +307,42 @@ class DeepFeedNet(AutoSklearnClassificationAlgorithm):
         cs.add_hyperparameter(power)
         cs.add_hyperparameter(epoch_step)
 
+        # TODO: Put this conditioning in a for-loop
         # Condition layers parameter on layer choice
-        #layer_2_condition = InCondition(num_units_layer_2, num_layers, [3, 4, 5, 6])
-        #layer_3_condition = InCondition(num_units_layer_3, num_layers, [4, 5, 6])
-        #layer_4_condition = InCondition(num_units_layer_4, num_layers, [5, 6])
-        #layer_5_condition = InCondition(num_units_layer_5, num_layers, [6])
-        #cs.add_condition(layer_2_condition)
-        #cs.add_condition(layer_3_condition)
-        #cs.add_condition(layer_4_condition)
-        #cs.add_condition(layer_5_condition)
+        layer_2_condition = InCondition(num_units_layer_2, num_layers, ['d', 'e', 'f', 'g', 'h'])
+        layer_3_condition = InCondition(num_units_layer_3, num_layers, ['e', 'f', 'g', 'h'])
+        layer_4_condition = InCondition(num_units_layer_4, num_layers, ['f', 'g', 'h'])
+        layer_5_condition = InCondition(num_units_layer_5, num_layers, ['g', 'h'])
+        layer_6_condition = InCondition(num_units_layer_6, num_layers, ['h'])
+        cs.add_condition(layer_2_condition)
+        cs.add_condition(layer_3_condition)
+        cs.add_condition(layer_4_condition)
+        cs.add_condition(layer_5_condition)
+        cs.add_condition(layer_6_condition)
+
+        # Condition dropout parameter on layer choice
+        dropout_2_condition = InCondition(dropout_layer_2, num_layers, ['d', 'e', 'f', 'g', 'h'])
+        dropout_3_condition = InCondition(dropout_layer_3, num_layers, ['e', 'f', 'g', 'h'])
+        dropout_4_condition = InCondition(dropout_layer_4, num_layers, ['f', 'g', 'h'])
+        dropout_5_condition = InCondition(dropout_layer_5, num_layers, ['g', 'h'])
+        dropout_6_condition = InCondition(dropout_layer_6, num_layers, ['h'])
+        cs.add_condition(dropout_2_condition)
+        cs.add_condition(dropout_3_condition)
+        cs.add_condition(dropout_4_condition)
+        cs.add_condition(dropout_5_condition)
+        cs.add_condition(dropout_6_condition)
+
+        # Condition std parameter on layer choice
+        std_2_condition = InCondition(std_layer_2, num_layers, ['d', 'e', 'f', 'g', 'h'])
+        std_3_condition = InCondition(std_layer_3, num_layers, ['e', 'f', 'g', 'h'])
+        std_4_condition = InCondition(std_layer_4, num_layers, ['f', 'g', 'h'])
+        std_5_condition = InCondition(std_layer_5, num_layers, ['g', 'h'])
+        std_6_condition = InCondition(std_layer_6, num_layers, ['h'])
+        cs.add_condition(std_2_condition)
+        cs.add_condition(std_3_condition)
+        cs.add_condition(std_4_condition)
+        cs.add_condition(std_5_condition)
+        cs.add_condition(std_6_condition)
 
         momentum_depends_on_solver = InCondition(momentum, solver,
                                                  values=["sgd", "momentum", "nesterov"])

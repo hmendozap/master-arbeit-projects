@@ -64,7 +64,7 @@ class FeedForwardNet(object):
         self.epoch_step = epoch_step
 
         if is_sparse:
-            input_var = S.csr_matrix('inputs', dtype='float64')
+            input_var = S.csr_matrix('inputs', dtype='float32')
         else:
             # dMatrix forces the tensor var to be of float64 and clashes
             # with the THEANO_FLAGS in the cluster
@@ -154,9 +154,9 @@ class FeedForwardNet(object):
         elif self.lr_policy == 'exp':
             decay = gm ** epoch
         elif self.lr_policy == 'step':
-            decay = T.switch(cond=T.eq(T.mod_check(epoch, step), 0),
-                             ift=T.power(gm, T.floor_div(epoch, step)),
-                             iff=1.0)
+            decay = T.switch(T.eq(T.mod_check(epoch, step), 0),
+                             T.power(gm, T.floor_div(epoch, step)),
+                             1.0)
         elif self.lr_policy == 'fixed':
             decay = T.constant(1.0, name='fixed', dtype=theano.config.floatX)
 
