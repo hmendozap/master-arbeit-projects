@@ -116,7 +116,7 @@ class FeedForwardNet(object):
                                                         momentum=self.momentum)
         elif solver == "adam":
             updates = lasagne.updates.adam(loss, params,
-                                           learning_rate=self.learning_rate,
+                                           learning_rate=lr_scalar,
                                            beta1=self.beta1, beta2=self.beta2)
         elif solver == "adadelta":
             updates = lasagne.updates.adadelta(loss, params,
