@@ -2,7 +2,7 @@ import unittest
 import os
 
 from component.DeepFeedNet import DeepFeedNet
-from component.ConstrainedFeedNet import ConstrainedFeedNet
+from component.ConstrainedFeedNet import ConstrainedFeedNet, AdamConstFeedNet
 from autosklearn.pipeline.util import _test_classifier, _test_classifier_predict_proba
 
 import sklearn.metrics
@@ -71,10 +71,10 @@ class NetComponentTest(unittest.TestCase):
 
     def test_constrained_default_configuration_space(self):
         for i in range(10):
-            configuration_space = ConstrainedFeedNet.get_hyperparameter_search_space()
+            configuration_space = AdamConstFeedNet.get_hyperparameter_search_space()
             default = configuration_space.get_default_configuration()
 
-            kls = ConstrainedFeedNet(**{hp_name: default[hp_name] for hp_name in
+            kls = AdamConstFeedNet(**{hp_name: default[hp_name] for hp_name in
                                      default if default[hp_name] is not None})
             kls.fit(self.X_train, self.y_train)
             prediction = kls.predict(self.X_test)
