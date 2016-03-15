@@ -6,8 +6,7 @@ from component.implementation.BinaryFeedForwardNet import BinaryFeedForwardNet
 
 
 class TestFeedForwardNet(unittest.TestCase):
-    dataset_dir = '/home/hmendoza/workspace/master_arbeit/' \
-                  'auto-deep/datasets/dataset_728/'
+    dataset_dir = '/home/mendozah/workspace/datasets/dataset_728/'
 
     X_train = np.load(dataset_dir + 'train.npy')
     y_train = np.load(dataset_dir + 'train_labels.npy')
@@ -74,21 +73,20 @@ class TestFeedForwardNet(unittest.TestCase):
                                solver='sgd',
                                beta1=0.030996996347756028,
                                beta2=3.624204945904676E-4,
-                               lr_policy='inv',
+                               lr_policy='step',
                                gamma=0.045100726594474436,
                                power=0.7620354736863749,
-                               epoch_step=4,
+                               epoch_step=10,
                                num_epochs=49)
         model.fit(self.X_train, self.y_train)
-        # print("Model fitted")
+        print("Model fitted")
 
         predicted_probability_matrix = model.predict_proba(self.X_test)
         expected_labels = np.argmax(predicted_probability_matrix, axis=1)
         predicted_labels = model.predict(self.X_test)
-        accuracy = np.count_nonzero(self.y_test == predicted_labels)
-        #print(float(accuracy) / float(self.X_test.shape[0]))
 
         # TODO: Add asserts and end lr calculations
+        print("lr is {:.4E}".format(model.learning_rate))
         # self.assertTrue(0.1 == model.learning_rate)
         self.assertTrue((predicted_labels == expected_labels).all(), msg="Failed predicted probability")
         self.assertTrue((1 - predicted_probability_matrix.sum(axis=1) < 1e-3).all())
