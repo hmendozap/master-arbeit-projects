@@ -21,23 +21,25 @@ def _hyp_split(x, listing):
         listing.append(pname)
     return param_value[1]
 
+DEBUG = True
+
 
 class ConfigReader:
 
-    def __init__(self, data_dir=None, scenario=None):
+    def __init__(self, data_dir=None, dataset=None):
         self.runs_df = None
         self.trajectories_df = None
-        self.scenario = scenario
+        self.dataset = dataset
         self.data_dir = data_dir
         self.full_config = False
 
-    def load_run_configs(self, data_dir=None, scenario=None,
+    def load_run_configs(self, data_dir=None, dataset=None,
                          preprocessor='no_preprocessing', full_config=False):
         """
         Loads all configurations run by SMAC, with validation error response
 
         :param data_dir: Directory of where SMAC files live
-        :param scenario: In this case, the dataset used to train the model
+        :param dataset: In this case, the dataset used to train the model
         :param preprocessor: Preprocessing method used in the data. None means all
         :param full_config: Whether to return also the configuration of the preprocessor,
                             imputation and one-hot-encoding
@@ -49,17 +51,20 @@ class ConfigReader:
         elif self.data_dir is not None:
             data_dir = self.data_dir
 
-        if scenario is None and self.scenario is not None:
-            scenario = self.scenario
-        elif self.scenario is None:
-            raise ValueError('Dataset not given')
+        if dataset is None:
+            if self.dataset is None:
+                raise ValueError('Dataset not given')
+            else:
+                dataset = self.dataset
 
         run_filename = "runs_and_results-SHUTDOWN*"
         state_seed = "state-run*"
-        if preprocessor is None:
-            scenario_dir = os.path.join(data_dir, scenario, '*', scenario, state_seed, run_filename)
+        if preprocessor == 'all':
+            scenario_dir = os.path.join(data_dir, dataset, '*', dataset, state_seed, run_filename)
+        elif preprocessor is not None:
+            scenario_dir = os.path.join(data_dir, dataset, preprocessor, dataset, state_seed, run_filename)
         else:
-            scenario_dir = os.path.join(data_dir, scenario, preprocessor, scenario, state_seed, run_filename)
+            scenario_dir = os.path.join(data_dir, dataset, state_seed, run_filename)
 
         dirs = _ns.natsorted(_glob.glob(scenario_dir))
         if len(dirs) == 0:
@@ -111,7 +116,8 @@ class ConfigReader:
         # TODO: Add checks to wheter one is using a non runs_results file
         config_run_match = fname.rsplit('runs_and_results-')[1].rsplit('.')[0]
         config_filename = "paramstrings-" + config_run_match + "*"
-        print(config_filename)
+        if DEBUG:
+            print(config_filename)
 
         try:
             confname = _glob.glob(os.path.join(base_dir, config_filename))[0]
@@ -126,14 +132,15 @@ class ConfigReader:
 
         # Almost everything that goes from the second(:) is eliminated from names
         # list(map()) because python3
+        filtered_names = list(map(lambda X: X.split(':')[-1], filter(lambda Z: Z.split(':')[0] != 'classifier', names)))
         classifier_names = list(map(lambda Y: Y.split(':')[-1], names))
 
         # Name column and remove not-classifier parameters
         config_df.columns = ['config_id'] + classifier_names
 
         if not full_config:
-            cols_to_drop = [1, 31, 32, 33, 34]
-            configuration_df = config_df.drop(config_df.columns[cols_to_drop], axis=1)
+            # Delete classifier:choice parameter
+            configuration_df = config_df.drop(filtered_names, axis=1)
             run_config_df = _pd.merge(run_df, configuration_df, on='config_id')
         else:
             run_config_df = _pd.merge(run_df, config_df, on='config_id')
@@ -141,11 +148,12 @@ class ConfigReader:
         # Filter configurations over the error to have a better fit
         run_config_df = run_config_df[run_config_df['response'] > 0.0]
         run_config_df = run_config_df[run_config_df['response'] < 1.0]
-        #run_config_df = run_config_df.query('response > 0 and response < 1.0')
+        # run_config_df = run_config_df.query('response > 0 and response < 1.0')
 
         return run_config_df.copy()
 
-    def load_trajectory_by_file(self, fname, full_config=False):
+    @staticmethod
+    def load_trajectory_by_file(fname, full_config=False):
         """
         :param fname: filename to load
         :param full_config: Whether to return also the configuration of the preprocessor, imputation and one-hot-encoding
@@ -168,6 +176,8 @@ class ConfigReader:
         traj_res.iloc[:, 1] = _pd.to_numeric(traj_res.iloc[:, 1], errors='coerce')
         # Get the values of configuration parameters
         traj_res.iloc[:, 5:-1] = traj_res.iloc[:, 5:-1].apply(lambda x: x.apply(_hyp_split, args=(names,)))
+
+        # TODO: Improve unnecesary columns droping using filter()
 
         if full_config:
             smac_cols = [tuple([a]+[b]) for a, b in zip(['smac']*len(traj_cols), traj_cols)]
@@ -199,31 +209,36 @@ class ConfigReader:
 
         return class_df.copy()
 
-    def load_trajectories(self, data_dir=None, scenario=None,
+    def load_trajectories(self, data_dir=None, dataset=None,
                           preprocessor=None, full_config=False):
         """
         :param data_dir: Directory of where SMAC files live
-        :param scenario: Dataset used to train the model
+        :param dataset: Dataset used to train the model
         :param preprocessor: Preprocessing method used in the data. None means all
         :param full_config: Whether to return also the configuration of the preprocessor, imputation and one-hot-encoding
         :return: pandas.DataFrame with the performance (training errors) and the feed neural network configurations given
                  by the detailed trajectory files
         """
-        if data_dir is None and self.data_dir is None:
-            raise ValueError('Location of information not given')
-        elif self.data_dir is not None:
-            data_dir = self.data_dir
+        if data_dir is None:
+            if self.data_dir is None:
+                raise ValueError('Location of information not given')
+            else:
+                data_dir = self.data_dir
 
-        if scenario is None and self.scenario is not None:
-            scenario = self.scenario
-        elif self.scenario is None:
-            raise ValueError('Dataset not given')
+        if dataset is None:
+            if self.dataset is not None:
+                dataset = self.dataset
+            else:
+                raise ValueError('Dataset not given')
 
+        # Could be done with find-like method, but no
         traj_filename = "detailed-traj-run-*.csv"
-        if preprocessor is None:
-            scenario_dir = os.path.join(data_dir, scenario, '*', scenario, traj_filename)
+        if preprocessor == 'all':
+            scenario_dir = os.path.join(data_dir, dataset, '*', dataset, traj_filename)
+        elif preprocessor is not None:
+            scenario_dir = os.path.join(data_dir, dataset, preprocessor, dataset, traj_filename)
         else:
-            scenario_dir = os.path.join(data_dir, scenario, preprocessor, scenario, traj_filename)
+            scenario_dir = os.path.join(data_dir, dataset, traj_filename)
 
         dirs = _ns.natsorted(_glob.glob(scenario_dir))
         seeds = ['seed_' + itseeds.split('-')[-1].split('.')[0] for itseeds in dirs]
