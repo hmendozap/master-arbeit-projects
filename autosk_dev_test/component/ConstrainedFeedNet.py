@@ -4,7 +4,7 @@ from HPOlibConfigSpace.configuration_space import ConfigurationSpace
 from HPOlibConfigSpace.hyperparameters import Constant, CategoricalHyperparameter, \
     UniformFloatHyperparameter, UniformIntegerHyperparameter
 
-from component.DeepFeedNet import DeepFeedNet
+from .DeepFeedNet import DeepFeedNet
 
 
 class ConstrainedFeedNet(DeepFeedNet):
@@ -358,6 +358,7 @@ class AdagradStepConstFeedNet(AdagradConstFeedNet):
 
         gamma = UniformFloatHyperparameter(name="gamma",
                                            lower=1e-2, upper=1.0,
+                                           log=True,
                                            default=1e-2)
 
         epoch_step = CategoricalHyperparameter("epoch_step",
@@ -435,6 +436,7 @@ class NesterovStepConstFeedNet(NesterovConstFeedNet):
 
         gamma = UniformFloatHyperparameter(name="gamma",
                                            lower=1e-2, upper=1e-1,
+                                           log=True,
                                            default=1e-2)
 
         epoch_step = CategoricalHyperparameter("epoch_step",
@@ -512,6 +514,7 @@ class MomentumStepConstFeedNet(MomentumConstFeedNet):
 
         gamma = UniformFloatHyperparameter(name="gamma",
                                            lower=1e-2, upper=1.0,
+                                           log=True,
                                            default=1e-2)
 
         epoch_step = CategoricalHyperparameter("epoch_step",

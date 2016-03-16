@@ -153,6 +153,7 @@ class DeepFeedNet(AutoSklearnClassificationAlgorithm):
                                                choices=layer_choices,
                                                default='e')
 
+        # <editor-fold desc="Number of units in layers 1-6">
         num_units_layer_1 = UniformIntegerHyperparameter("num_units_layer_1",
                                                          10, 6144,
                                                          log=True,
@@ -182,7 +183,9 @@ class DeepFeedNet(AutoSklearnClassificationAlgorithm):
                                                          10, 6144,
                                                          log=True,
                                                          default=10)
+        # </editor-fold>
 
+        # <editor-fold desc="Dropout in layers 1-6">
         dropout_layer_1 = UniformFloatHyperparameter("dropout_layer_1",
                                                      0.0, 0.99,
                                                      default=0.5)
@@ -206,6 +209,7 @@ class DeepFeedNet(AutoSklearnClassificationAlgorithm):
         dropout_layer_6 = UniformFloatHyperparameter("dropout_layer_6",
                                                      0.0, 0.99,
                                                      default=0.5)
+        # </editor-fold>
 
         dropout_output = UniformFloatHyperparameter("dropout_output", 0.0, 0.99,
                                                     default=0.5)
@@ -220,6 +224,7 @@ class DeepFeedNet(AutoSklearnClassificationAlgorithm):
         momentum = UniformFloatHyperparameter("momentum", 0.3, 0.999,
                                               default=0.9)
 
+        # <editor-fold desc="Std for layers 1-6">
         std_layer_1 = UniformFloatHyperparameter("std_layer_1", 1e-6, 0.1,
                                                  log=True,
                                                  default=0.005)
@@ -243,6 +248,7 @@ class DeepFeedNet(AutoSklearnClassificationAlgorithm):
         std_layer_6 = UniformFloatHyperparameter("std_layer_6", 1e-6, 0.1,
                                                  log=True,
                                                  default=0.005)
+        # </editor-fold>
 
         solver = CategoricalHyperparameter(name="solver",
                                            choices=solver_choices,
