@@ -1,0 +1,17 @@
+numIterations = 2147483647
+test-instances = tmp/autosk_tmp/test_instances.txt
+pcs-file = /home/hmendoza/workspace/master_arbeit/auto-deep/projects/autosk_dev_test/tmp/autosk_tmp/space.pcs
+instances = tmp/autosk_tmp/instances.txt
+intraInstanceObj = MEAN
+algoExec = "runsolver --watcher-data /dev/null -W 1765 -d 30 -M 2048  python /home/hmendoza/workspace/master_arbeit/auto-deep/auto-sklearn/autosklearn/cli/SMAC_interface.py "
+execDir = tmp/autosk_tmp
+deterministic = true
+log-level = DEBUG
+outputDirectory = tmp/autosk_tmp
+totalNumRunsLimit = 2147483647
+runObj = QUALITY
+cutoffTime = 1765
+abort-on-first-run-crash = false
+console-log-level = DEBUG
+wallclock-limit = 7200
+numConcurrentAlgoExecs = 1

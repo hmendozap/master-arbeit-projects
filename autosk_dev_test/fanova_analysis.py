@@ -1,2 +1,16 @@
-iterate_axis.hist(np.log10(groups.learning_rate.values), bins=15, histtype='bar', normed=1,
-                         stacked=False, label=name, alpha=0.7, color=color_histograms.pop())
+# -*- encoding: utf-8 -*-
+"""
+Script for fANOVA analysis
+"""
+
+from pyfanova.fanova import Fanova
+
+state_run_dir = "tmp/old_autosk_tmp/728_Testing/state-run50/"
+
+# This only works because the scenario txt file was severely
+# changed.
+
+fano_728 = Fanova(state_run_dir)
+
+fano_728.print_all_marginals()
+
