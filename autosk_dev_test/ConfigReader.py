@@ -21,13 +21,14 @@ def _hyp_split(x, listing):
         listing.append(pname)
     return param_value[1]
 
-DEBUG = True
+DEBUG = False
 
 
 class ConfigReader:
 
     def __init__(self, data_dir=None, dataset=None):
         self.runs_df = None
+        self.bests_df = None
         self.trajectories_df = None
         self.dataset = dataset
         self.data_dir = data_dir
@@ -70,12 +71,16 @@ class ConfigReader:
         if len(dirs) == 0:
             raise ValueError('No runs_and_results files found.')
 
+        seeds_names = ['runs_' + itseeds.split('state-run')[-1].split('/')[0] for itseeds in dirs]
+
         all_runs = []
+        all_best = []
         runs_by_seed = []
         for fnames in dirs:
             try:
-                run_res = self.load_run_by_file(fnames, full_config=full_config)
+                run_res, best_run = self.load_run_by_file(fnames, full_config=full_config)
                 all_runs.append(run_res)
+                all_best.append(best_run)
                 runs_by_seed.append(run_res.shape[0])
             except IndexError:
                 print('CRASH in: ' + os.path.split(fnames)[1])
@@ -86,8 +91,15 @@ class ConfigReader:
         # Try to convert to numeric type
         runs_all_df = runs_all_df.apply(_pd.to_numeric, errors='ignore')
 
+        # Best config each run
+        best_all_df = _pd.concat(all_best, axis=1)
+        best_all_df = best_all_df.apply(_pd.to_numeric, errors='ignore')
+        best_all_df.columns = seeds_names
+
         self.runs_df = runs_all_df.copy()
-        return runs_all_df.copy()
+        self.bests_df = best_all_df.T.copy()
+
+        return runs_all_df.copy(), best_all_df.T.copy()
 
     @staticmethod
     def load_run_by_file(fname, full_config=False):
@@ -106,7 +118,7 @@ class ConfigReader:
                                   skipinitialspace=False,
                                   header=None, skiprows=1)
         except OSError:
-            print('file %s does not exist. Please check path' % fname)
+            raise OSError('file %s does not exist. Please check path' % fname)
 
         run_df.columns = run_cols
         run_df.sort_values(by='response', axis=0, ascending=False, na_position='first', inplace=True)
@@ -148,9 +160,10 @@ class ConfigReader:
         # Filter configurations over the error to have a better fit
         run_config_df = run_config_df[run_config_df['response'] > 0.0]
         run_config_df = run_config_df[run_config_df['response'] < 1.0]
+        best_config_response = run_config_df.ix[run_config_df['response'].idxmin()]
         # run_config_df = run_config_df.query('response > 0 and response < 1.0')
 
-        return run_config_df.copy()
+        return run_config_df.copy(), best_config_response.copy()
 
     @staticmethod
     def load_trajectory_by_file(fname, full_config=False):
