@@ -36,7 +36,7 @@ class FeedForwardNet(object):
                  lambda2=1e-4, momentum=0.9, beta1=0.9, beta2=0.9,
                  rho=0.95, solver="sgd", num_epochs=2,
                  lr_policy="fixed", gamma=0.01, power=1.0, epoch_step=1,
-                 is_sparse=False):
+                 is_sparse=False, is_binary=False):
 
         self.batch_size = batch_size
         self.input_shape = input_shape
@@ -62,15 +62,22 @@ class FeedForwardNet(object):
         else:
             self.power = power
         self.epoch_step = epoch_step
+        self.is_binary = is_binary
+        self.solver = solver
 
         if is_sparse:
             input_var = S.csr_matrix('inputs', dtype='float32')
         else:
-            # dMatrix forces the tensor var to be of float64 and clashes
-            # with the THEANO_FLAGS in the cluster
             input_var = T.matrix('inputs')
-        target_var = T.lvector('targets')
+
+        if self.is_binary:
+            target_var = T.lmatrix('targets')
+        else:
+            target_var = T.lvector('targets')
+
         if DEBUG:
+            if self.is_binary:
+                print("... using binary loss")
             print("... building network")
             print input_shape
             print("... with number of epochs")
@@ -78,6 +85,9 @@ class FeedForwardNet(object):
 
         self.network = lasagne.layers.InputLayer(shape=input_shape,
                                                  input_var=input_var)
+
+        # Choose hidden activation function
+
         # Define each layer
         for i in range(num_layers - 1):
             self.network = lasagne.layers.DenseLayer(
@@ -88,17 +98,29 @@ class FeedForwardNet(object):
                  b=lasagne.init.Constant(val=0.0),
                  nonlinearity=lasagne.nonlinearities.rectify)
 
-        # Define output layer
+        # Define output layer and nonlinearity of last layer
+        if self.is_binary:
+            output_activation = lasagne.nonlinearities.sigmoid
+        else:
+            output_activation = lasagne.nonlinearities.softmax
+
         self.network = lasagne.layers.DenseLayer(
-                 lasagne.layers.dropout(self.network, p=self.dropout_output),
+                 lasagne.layers.dropout(self.network,
+                                        p=self.dropout_output),
                  num_units=self.num_output_units,
                  W=lasagne.init.GlorotNormal(),
                  b=lasagne.init.Constant(),
-                 nonlinearity=lasagne.nonlinearities.softmax)
+                 nonlinearity=output_activation)
 
         prediction = lasagne.layers.get_output(self.network)
-        loss = lasagne.objectives.categorical_crossentropy(prediction,
-                                                           target_var)
+
+        if self.is_binary:
+            loss_function = lasagne.objectives.binary_hinge_loss
+        else:
+            loss_function = lasagne.objectives.categorical_crossentropy
+
+        loss = loss_function(prediction, target_var)
+
         # Aggregate loss mean function with l2 Regularization on all layers' params
         loss = loss.mean()
         l2_penalty = self.lambda2 * lasagne.regularization.regularize_network_params(
@@ -144,10 +166,14 @@ class FeedForwardNet(object):
                                         loss,
                                         updates=updates,
                                         allow_input_downcast=True,
+                                        profile=False,
                                         on_unused_input='warn')
-        self.update_function = self.policy_function()
+        self.update_function = self._policy_function()
 
-    def policy_function(self):
+    def _choose_activation(self):
+        pass
+
+    def _policy_function(self):
         epoch, gm, powr, step = T.scalars('epoch', 'gm', 'powr', 'step')
         if self.lr_policy == 'inv':
             decay = T.power(1+gm*epoch, -powr)
@@ -180,7 +206,10 @@ class FeedForwardNet(object):
 
     def predict(self, X, is_sparse=False):
         predictions = self.predict_proba(X, is_sparse)
-        return np.argmax(predictions, axis=1)
+        if not self.is_binary:
+            return np.argmax(predictions, axis=1)
+        else:
+            return np.rint(predictions)
 
     def predict_proba(self, X, is_sparse=False):
         # TODO: Add try-except statements

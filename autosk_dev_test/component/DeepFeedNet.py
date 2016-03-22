@@ -45,29 +45,58 @@ class DeepFeedNet(AutoSklearnClassificationAlgorithm):
         self.power = power
         self.epoch_step = epoch_step
 
+        # Empty features and shape
+        self.n_features = None
+        self.input_shape = None
+        self.m_issparse = False
+        self.m_isbinary = False
+
+        # To avoid eval call. Could be done with **karws
+        args = locals()
+
         self.num_units_per_layer = []
         self.dropout_per_layer = []
         self.std_per_layer = []
         for i in range(1, self.num_layers):
-            self.num_units_per_layer.append(int(eval("num_units_layer_" + str(i))))
-            self.dropout_per_layer.append(float(eval("dropout_layer_" + str(i))))
-            self.std_per_layer.append(float(eval("std_layer_" + str(i))))
+            self.num_units_per_layer.append(int(args.get("num_units_layer_" + str(i))))
+            self.dropout_per_layer.append(float(args.get("dropout_layer_" + str(i))))
+            self.std_per_layer.append(float(args.get("std_layer_" + str(i))))
         self.estimator = None
 
-    def fit(self, X, y):
+    def _prefit(self, X, y):
         self.batch_size = int(self.batch_size)
-
         self.n_features = X.shape[1]
         self.input_shape = (self.batch_size, self.n_features)
-        num_output_units = len(np.unique(y.astype(int)))
+        number_classes = len(np.unique(y.astype(int)))
 
-        assert len(self.num_units_per_layer) == self.num_layers - 1
-        assert len(self.dropout_per_layer) == self.num_layers - 1
+        assert len(self.num_units_per_layer) == self.num_layers - 1,\
+            "Number of created layers is different than actual layers"
+        assert len(self.dropout_per_layer) == self.num_layers - 1,\
+            "Number of created layers is different than actual layers"
 
-        m_issparse = sp.issparse(X)
+        if len(y.shape) == 2 and y.shape[1] > 1:
+            # TODO: Have to check
+            pass
 
-        # Calculate the number of epochs
-        # TODO: Calculate correctly how updates influence the model
+        # Make it binary
+        if number_classes == 2:
+            self.m_isbinary = True
+            self.num_output_units = 1
+            y = y[:, np.newaxis]
+        else:
+            self.num_output_units = number_classes
+
+        self.m_issparse = sp.issparse(X)
+
+        return X, y
+
+    def _choose_estimator(self):
+        pass
+
+    def fit(self, X, y):
+
+        Xf, yf = self._prefit(X, y)
+
         epoch = (self.number_updates * self.batch_size)//X.shape[0]
         number_epochs = max(2, epoch)
         # number_epochs = min(max(2, epoch), 30)
@@ -78,7 +107,7 @@ class DeepFeedNet(AutoSklearnClassificationAlgorithm):
                                                        num_units_per_layer=self.num_units_per_layer,
                                                        dropout_per_layer=self.dropout_per_layer,
                                                        std_per_layer=self.std_per_layer,
-                                                       num_output_units=num_output_units,
+                                                       num_output_units=self.num_output_units,
                                                        dropout_output=self.dropout_output,
                                                        learning_rate=self.learning_rate,
                                                        lr_policy=self.lr_policy,
@@ -92,8 +121,9 @@ class DeepFeedNet(AutoSklearnClassificationAlgorithm):
                                                        gamma=self.gamma,
                                                        power=self.power,
                                                        epoch_step=self.epoch_step,
-                                                       is_sparse=m_issparse)
-        self.estimator.fit(X, y)
+                                                       is_sparse=self.m_issparse,
+                                                       is_binary=self.m_isbinary)
+        self.estimator.fit(Xf, yf)
         return self
 
     def predict(self, X):

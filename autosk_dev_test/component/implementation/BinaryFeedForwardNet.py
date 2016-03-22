@@ -136,7 +136,7 @@ class BinaryFeedForwardNet(object):
 
     def predict(self, X, is_sparse=False):
         predictions = self.predict_proba(X, is_sparse)
-        return np.argmax(predictions, axis=1)
+        return np.rint(predictions)
 
     def predict_proba(self, X, is_sparse=False):
         # TODO: Add try-except statements
