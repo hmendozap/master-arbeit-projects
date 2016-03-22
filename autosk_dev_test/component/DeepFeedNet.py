@@ -45,13 +45,16 @@ class DeepFeedNet(AutoSklearnClassificationAlgorithm):
         self.power = power
         self.epoch_step = epoch_step
 
+        # To avoid eval call. Could be done with **karws
+        args = locals()
+
         self.num_units_per_layer = []
         self.dropout_per_layer = []
         self.std_per_layer = []
         for i in range(1, self.num_layers):
-            self.num_units_per_layer.append(int(eval("num_units_layer_" + str(i))))
-            self.dropout_per_layer.append(float(eval("dropout_layer_" + str(i))))
-            self.std_per_layer.append(float(eval("std_layer_" + str(i))))
+            self.num_units_per_layer.append(int(args.get("num_units_layer_" + str(i))))
+            self.dropout_per_layer.append(float(args.get("dropout_layer_" + str(i))))
+            self.std_per_layer.append(float(args.get("std_layer_" + str(i))))
         self.estimator = None
 
     def fit(self, X, y):
