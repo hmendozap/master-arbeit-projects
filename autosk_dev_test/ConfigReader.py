@@ -136,8 +136,7 @@ class ConfigReader:
         except IndexError:
             raise IndexError("There is no parameter configuration file")
 
-        config_df = _pd.read_csv(confname, delimiter=",|:\s", header=None)
-
+        config_df = _pd.read_csv(confname, engine='python', delimiter=",|:\s", header=None)
         # Get the values of configuration parameters
         names = []
         config_df.iloc[:, 1:] = config_df.iloc[:, 1:].apply(lambda x: x.apply(_hyp_split, args=(names,)))
@@ -272,6 +271,12 @@ class ConfigReader:
 
         self.trajectories_df = trajectories_df.copy()
         return trajectories_df.copy()
+
+    def load_solver_policies_runs(self, base_data_dir, datasets):
+        # TODO: Transverse all directories from data_dir, and key
+        # them with the datasets (dict)
+        # Refer to ipynb Policy-vs-Solver
+        pass
 
     def save_config_run(self, storage_dir):
         """
