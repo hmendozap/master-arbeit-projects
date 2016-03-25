@@ -34,7 +34,7 @@ class FeedForwardNet(object):
                  dropout_per_layer=(0.5, 0.5, 0.5), std_per_layer=(0.005, 0.005, 0.005),
                  num_output_units=2, dropout_output=0.5, learning_rate=0.01,
                  lambda2=1e-4, momentum=0.9, beta1=0.9, beta2=0.9,
-                 rho=0.95, solver="sgd", num_epochs=2,
+                 rho=0.95, solver="sgd", num_epochs=2, activation='relu',
                  lr_policy="fixed", gamma=0.01, power=1.0, epoch_step=1,
                  is_sparse=False, is_binary=False):
 
@@ -64,6 +64,7 @@ class FeedForwardNet(object):
         self.epoch_step = epoch_step
         self.is_binary = is_binary
         self.solver = solver
+        self.activation = activation
 
         if is_sparse:
             input_var = S.csr_matrix('inputs', dtype='float32')
@@ -87,6 +88,12 @@ class FeedForwardNet(object):
                                                  input_var=input_var)
 
         # Choose hidden activation function
+        if self.is_binary:
+            activation_function = self.binary_activation.get(self.activation,
+                                                             lasagne.nonlinearities.rectify)
+        else:
+            activation_function = self.multiclass_activation.get(self.activation,
+                                                                 lasagne.nonlinearities.sigmoid)
 
         # Define each layer
         for i in range(num_layers - 1):
@@ -96,7 +103,7 @@ class FeedForwardNet(object):
                  num_units=self.num_units_per_layer[i],
                  W=lasagne.init.Normal(std=self.std_per_layer[i], mean=0),
                  b=lasagne.init.Constant(val=0.0),
-                 nonlinearity=lasagne.nonlinearities.rectify)
+                 nonlinearity=activation_function)
 
         # Define output layer and nonlinearity of last layer
         if self.is_binary:
@@ -129,7 +136,6 @@ class FeedForwardNet(object):
         params = lasagne.layers.get_all_params(self.network, trainable=True)
 
         # Create the symbolic scalar lr for loss & updates function
-        # EXCEPT for adam as it creates its own lr steps (only pass initial lr)
         lr_scalar = T.scalar('lr', dtype=theano.config.floatX)
 
         if solver == "nesterov":
@@ -170,9 +176,6 @@ class FeedForwardNet(object):
                                         on_unused_input='warn')
         self.update_function = self._policy_function()
 
-    def _choose_activation(self):
-        pass
-
     def _policy_function(self):
         epoch, gm, powr, step = T.scalars('epoch', 'gm', 'powr', 'step')
         if self.lr_policy == 'inv':
@@ -194,8 +197,7 @@ class FeedForwardNet(object):
         for epoch in range(self.num_epochs):
             train_err = 0
             train_batches = 0
-            for batch in iterate_minibatches(X, y, self.batch_size, shuffle=True):
-                inputs, targets = batch
+            for inputs, targets in iterate_minibatches(X, y, self.batch_size, shuffle=True):
                 train_err += self.train_fn(inputs, targets, self.learning_rate)
                 train_batches += 1
             decay = self.update_function(self.gamma, epoch+1,
@@ -217,3 +219,22 @@ class FeedForwardNet(object):
             X = S.basic.as_sparse_or_tensor_variable(X)
         predictions = lasagne.layers.get_output(self.network, X, deterministic=True).eval()
         return predictions
+
+    # TODO: Maybe create a utility module for constants
+    multiclass_activation = {
+        'softmax': lasagne.nonlinearities.softmax,
+        'relu': lasagne.nonlinearities.rectify,
+        'leaky': lasagne.nonlinearities.leaky_rectify,
+        'very_leaky': lasagne.nonlinearities.very_leaky_rectify,
+        'elu': lasagne.nonlinearities.elu,
+        'softplus': lasagne.nonlinearities.softplus,
+        'linear': lasagne.nonlinearities.linear,
+        'scaledTanh': lasagne.nonlinearities.ScaledTanH
+    }
+
+    binary_activation = {
+        'sigmoid': lasagne.nonlinearities.sigmoid,
+        'tahn': lasagne.nonlinearities.tanh,
+        'scaledTanh': lasagne.nonlinearities.ScaledTanH
+    }
+

@@ -17,7 +17,7 @@ class DeepFeedNet(AutoSklearnClassificationAlgorithm):
 
     def __init__(self, number_updates, batch_size, num_layers, num_units_layer_1,
                  dropout_layer_1, dropout_output, std_layer_1,
-                 learning_rate, solver, lambda2,
+                 learning_rate, solver, lambda2, activation,
                  num_units_layer_2=10, num_units_layer_3=10, num_units_layer_4=10,
                  num_units_layer_5=10, num_units_layer_6=10,
                  dropout_layer_2=0.5, dropout_layer_3=0.5, dropout_layer_4=0.5,
@@ -41,6 +41,7 @@ class DeepFeedNet(AutoSklearnClassificationAlgorithm):
         self.beta2 = 1-beta2
         self.rho = rho
         self.solver = solver
+        self.activation = activation
         self.gamma = gamma
         self.power = power
         self.epoch_step = epoch_step
@@ -117,6 +118,7 @@ class DeepFeedNet(AutoSklearnClassificationAlgorithm):
                                                        beta2=self.beta2,
                                                        rho=self.rho,
                                                        solver=self.solver,
+                                                       activation=self.activation,
                                                        num_epochs=number_epochs,
                                                        gamma=self.gamma,
                                                        power=self.power,
@@ -162,6 +164,11 @@ class DeepFeedNet(AutoSklearnClassificationAlgorithm):
         solver_choices = ["adam", "adadelta", "adagrad", "sgd", "momentum", "nesterov"]
 
         policy_choices = ['fixed', 'inv', 'exp', 'step']
+
+        binary_activations = ['sigmoid', 'tanh', 'scaledTanh']
+
+        multiclass_activations = ['relu', 'leaky', 'very_leaky', 'elu',
+                                  'softplus', 'softmax', 'linear', 'scaledTanh']
 
         # Hacky way to condition layers params based on the number of layers
         # 'c'=2, 'd'=3, 'e'=4 ,'f'=5, 'g'=6, 'h'=7
@@ -302,6 +309,17 @@ class DeepFeedNet(AutoSklearnClassificationAlgorithm):
                                                   2, 10,
                                                   default=2)
 
+        if (dataset_properties is not None and
+                dataset_properties.get('multiclass') is False):
+
+            non_linearities = CategoricalHyperparameter(name='activation',
+                                                        choices=binary_activations,
+                                                        default='sigmoid')
+        else:
+            non_linearities = CategoricalHyperparameter(name='activation',
+                                                        choices=multiclass_activations,
+                                                        default='relu')
+
         cs = ConfigurationSpace()
         # cs.add_hyperparameter(number_epochs)
         cs.add_hyperparameter(number_updates)
@@ -337,6 +355,7 @@ class DeepFeedNet(AutoSklearnClassificationAlgorithm):
         cs.add_hyperparameter(gamma)
         cs.add_hyperparameter(power)
         cs.add_hyperparameter(epoch_step)
+        cs.add_hyperparameter(non_linearities)
 
         # TODO: Put this conditioning in a for-loop
         # Condition layers parameter on layer choice

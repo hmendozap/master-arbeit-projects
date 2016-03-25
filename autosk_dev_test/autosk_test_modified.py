@@ -3,6 +3,7 @@
 import numpy as np
 from autosklearn.pipeline.components.classification import add_classifier
 import autosklearn.automl as autosk
+from autosklearn.constants import BINARY_CLASSIFICATION
 from component import DeepFeedNet
 
 dataset_dir = 
@@ -23,8 +24,8 @@ modl = autosk.AutoML(time_left_for_this_task=600, per_run_time_limit=90,
                      ensemble_size=0,
                      ensemble_nbest=0,
                      initial_configurations_via_metalearning=0,
-                     seed=200,
-                     ml_memory_limit=3072,
+                     seed=50,
+                     ml_memory_limit=2048,
                      metadata_directory=None,
                      queue=None,
                      keep_models=True,
@@ -32,7 +33,8 @@ modl = autosk.AutoML(time_left_for_this_task=600, per_run_time_limit=90,
                      resampling_strategy='holdout',
                      resampling_strategy_arguments=None)
 
-modl.fit(X_train, y_train, dataset_name='728_Testing')
+modl.fit(X_train, y_train, dataset_name='728_Testing',
+         task=BINARY_CLASSIFICATION)
 
 X_test = np.load(dataset_dir + 'test.npy')
 y_test = np.load(dataset_dir + 'test_labels.npy')
