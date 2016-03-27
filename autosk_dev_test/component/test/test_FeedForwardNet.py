@@ -133,7 +133,7 @@ class TestFeedForwardNet(unittest.TestCase):
         predicted_probability_matrix[predicted_probability_matrix >= 0.5] = 1
         predicted_probability_matrix[predicted_probability_matrix < 0.5] = 0
         expected_labels = predicted_probability_matrix
-        predicted_labels = model.predict(X_test)[:, np.newaxis]
+        predicted_labels = model.predict(X_test)
         accuracy = np.count_nonzero(y_test == predicted_labels)
         print(float(accuracy) / float(X_test.shape[0]))
 
