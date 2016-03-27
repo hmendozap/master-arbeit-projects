@@ -92,9 +92,6 @@ class DeepFeedNet(AutoSklearnClassificationAlgorithm):
 
         return X, y
 
-    def _choose_estimator(self):
-        pass
-
     def fit(self, X, y):
 
         Xf, yf = self._prefit(X, y)
@@ -166,7 +163,9 @@ class DeepFeedNet(AutoSklearnClassificationAlgorithm):
 
         policy_choices = ['fixed', 'inv', 'exp', 'step']
 
-        binary_activations = ['sigmoid', 'tanh', 'scaledTanh']
+        # TODO: Add ScaledTanh hyperparamteres and Leakyrectify
+        binary_activations = ['sigmoid', 'tanh', 'scaledTanh', 'softplus',
+                              'elu', 'relu']
 
         multiclass_activations = ['relu', 'leaky', 'very_leaky', 'elu',
                                   'softplus', 'softmax', 'linear', 'scaledTanh']

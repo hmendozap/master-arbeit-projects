@@ -229,12 +229,17 @@ class FeedForwardNet(object):
         'elu': lasagne.nonlinearities.elu,
         'softplus': lasagne.nonlinearities.softplus,
         'linear': lasagne.nonlinearities.linear,
-        'scaledTanh': lasagne.nonlinearities.ScaledTanH
+        'scaledTanh': lasagne.nonlinearities.ScaledTanH(scale_in=2./3.,
+                                                        scale_out=1.7159)
     }
 
     binary_activation = {
         'sigmoid': lasagne.nonlinearities.sigmoid,
+        'softplus': lasagne.nonlinearities.softplus,
         'tahn': lasagne.nonlinearities.tanh,
-        'scaledTanh': lasagne.nonlinearities.ScaledTanH
+        'scaledTanh': lasagne.nonlinearities.ScaledTanH(scale_in=2./3.,
+                                                        scale_out=1.7159),
+        'elu': lasagne.nonlinearities.elu,
+        'relu': lasagne.nonlinearities.rectify,
     }
 
