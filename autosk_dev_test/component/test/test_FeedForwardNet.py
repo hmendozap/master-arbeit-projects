@@ -6,7 +6,7 @@ from component.implementation.BinaryFeedForwardNet import BinaryFeedForwardNet
 
 
 class TestFeedForwardNet(unittest.TestCase):
-    dataset_dir = '/home/mendozah/workspace/datasets/dataset_728/'
+    dataset_dir = 
 
     X_train = np.load(dataset_dir + 'train.npy')
     y_train = np.load(dataset_dir + 'train_labels.npy')
@@ -104,8 +104,7 @@ class TestFeedForwardNet(unittest.TestCase):
         and binary cross entropy (BEC)
         :return:
         """
-        dataset_dir = '/home/hmendoza/workspace/master_arbeit/' \
-                      'auto-deep/datasets/dataset_728/'
+        dataset_dir = 
 
         # Take training and data from binary classification
         X_train = np.load(dataset_dir + 'train.npy')
