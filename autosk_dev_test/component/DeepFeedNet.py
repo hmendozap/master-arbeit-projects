@@ -83,7 +83,8 @@ class DeepFeedNet(AutoSklearnClassificationAlgorithm):
         if number_classes == 2:
             self.m_isbinary = True
             self.num_output_units = 1
-            y = y[:, np.newaxis]
+            if len(y.shape) == 1:
+                y = y[:, np.newaxis]
         else:
             self.num_output_units = number_classes
 

@@ -208,17 +208,17 @@ class FeedForwardNet(object):
 
     def predict(self, X, is_sparse=False):
         predictions = self.predict_proba(X, is_sparse)
-        if not self.is_binary:
-            return np.argmax(predictions, axis=1)
-        else:
-            return np.rint(predictions)
+        return np.argmax(predictions, axis=1)
 
     def predict_proba(self, X, is_sparse=False):
         # TODO: Add try-except statements
         if is_sparse:
             X = S.basic.as_sparse_or_tensor_variable(X)
         predictions = lasagne.layers.get_output(self.network, X, deterministic=True).eval()
-        return predictions
+        if self.is_binary:
+            return np.append(1 - predictions, predictions, axis=1)
+        else:
+            return predictions
 
     # TODO: Maybe create a utility module for constants
     multiclass_activation = {
