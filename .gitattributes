@@ -1,1 +1,2 @@
 autosk_dev_test/autosk_test*.py filter=pathignore
+autosk_dev_test/component/test/test_*.py filter=pathignore
