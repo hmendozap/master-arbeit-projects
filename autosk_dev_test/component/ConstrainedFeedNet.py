@@ -7,6 +7,49 @@ from HPOlibConfigSpace.hyperparameters import Constant, CategoricalHyperparamete
 from .DeepFeedNet import DeepFeedNet
 
 
+def _lr_policy_configuration_space(cs, policy=None):
+    if policy == 'inv':
+        lr_policy = Constant(name='lr_policy', value='inv')
+        gamma = UniformFloatHyperparameter(name="gamma",
+                                           lower=1e-2, upper=1.0,
+                                           log=True,
+                                           default=1e-2)
+        power = UniformFloatHyperparameter("power",
+                                           0.0, 1.0,
+                                           default=0.5)
+
+        cs.add_hyperparameter(lr_policy)
+        cs.add_hyperparameter(gamma)
+        cs.add_hyperparameter(power)
+
+    elif policy == 'exp':
+        lr_policy = Constant(name='lr_policy', value='exp')
+        gamma = UniformFloatHyperparameter(name="gamma",
+                                           lower=0.7, upper=1.0,
+                                           default=0.79)
+        cs.add_hyperparameter(lr_policy)
+        cs.add_hyperparameter(gamma)
+
+    elif policy == 'step':
+        lr_policy = Constant(name='lr_policy', value='step')
+        gamma = UniformFloatHyperparameter(name="gamma",
+                                           lower=1e-2, upper=1.0,
+                                           log=True,
+                                           default=1e-2)
+        epoch_step = CategoricalHyperparameter("epoch_step",
+                                               [6, 8, 12],
+                                               default=8)
+        cs.add_hyperparameter(lr_policy)
+        cs.add_hyperparameter(gamma)
+        cs.add_hyperparameter(epoch_step)
+
+    else:
+        lr_policy = Constant(name='lr_policy', value='fixed')
+        cs.add_hyperparameter(lr_policy)
+
+    return cs
+
+
 class ConstrainedFeedNet(DeepFeedNet):
 
     # Weak subtyping
@@ -89,21 +132,7 @@ class AdamInvConstFeedNet(AdamConstFeedNet):
     @staticmethod
     def get_hyperparameter_search_space(dataset_properties=None):
         cs = AdamConstFeedNet.get_hyperparameter_search_space()
-        lr_policy = Constant(name='lr_policy', value='inv')
-
-        gamma = UniformFloatHyperparameter(name="gamma",
-                                           lower=1e-2, upper=1.0,
-                                           log=True,
-                                           default=1e-2)
-
-        power = UniformFloatHyperparameter("power",
-                                           0.0, 1.0,
-                                           default=0.5)
-
-        cs.add_hyperparameter(lr_policy)
-        cs.add_hyperparameter(gamma)
-        cs.add_hyperparameter(power)
-
+        cs = _lr_policy_configuration_space(cs=cs, policy='inv')
         return cs
 
 
@@ -112,15 +141,7 @@ class AdamExpConstFeedNet(AdamConstFeedNet):
     @staticmethod
     def get_hyperparameter_search_space(dataset_properties=None):
         cs = AdamConstFeedNet.get_hyperparameter_search_space()
-        lr_policy = Constant(name='lr_policy', value='exp')
-
-        gamma = UniformFloatHyperparameter(name="gamma",
-                                           lower=0.7, upper=1.0,
-                                           default=0.79)
-
-        cs.add_hyperparameter(lr_policy)
-        cs.add_hyperparameter(gamma)
-
+        cs = _lr_policy_configuration_space(cs=cs, policy='exp')
         return cs
 
 
@@ -129,21 +150,7 @@ class AdamStepConstFeedNet(AdamConstFeedNet):
     @staticmethod
     def get_hyperparameter_search_space(dataset_properties=None):
         cs = AdamConstFeedNet.get_hyperparameter_search_space()
-        lr_policy = Constant(name='lr_policy', value='step')
-
-        gamma = UniformFloatHyperparameter(name="gamma",
-                                           lower=1e-2, upper=1.0,
-                                           log=True,
-                                           default=1e-2)
-
-        epoch_step = CategoricalHyperparameter("epoch_step",
-                                               [6, 8, 12],
-                                               default=8)
-
-        cs.add_hyperparameter(lr_policy)
-        cs.add_hyperparameter(gamma)
-        cs.add_hyperparameter(epoch_step)
-
+        cs = _lr_policy_configuration_space(cs=cs, policy='step')
         return cs
 
 
@@ -164,21 +171,7 @@ class SGDInvConstFeedNet(SGDConstFeedNet):
     @staticmethod
     def get_hyperparameter_search_space(dataset_properties=None):
         cs = SGDConstFeedNet.get_hyperparameter_search_space()
-        lr_policy = Constant(name='lr_policy', value='inv')
-
-        gamma = UniformFloatHyperparameter(name="gamma",
-                                           lower=1e-2, upper=1.0,
-                                           log=True,
-                                           default=1e-2)
-
-        power = UniformFloatHyperparameter("power",
-                                           0.0, 1.0,
-                                           default=0.5)
-
-        cs.add_hyperparameter(lr_policy)
-        cs.add_hyperparameter(gamma)
-        cs.add_hyperparameter(power)
-
+        cs = _lr_policy_configuration_space(cs=cs, policy='inv')
         return cs
 
 
@@ -187,15 +180,7 @@ class SGDExpConstFeedNet(SGDConstFeedNet):
     @staticmethod
     def get_hyperparameter_search_space(dataset_properties=None):
         cs = SGDConstFeedNet.get_hyperparameter_search_space()
-        lr_policy = Constant(name='lr_policy', value='exp')
-
-        gamma = UniformFloatHyperparameter(name="gamma",
-                                           lower=0.7, upper=1.0,
-                                           default=0.79)
-
-        cs.add_hyperparameter(lr_policy)
-        cs.add_hyperparameter(gamma)
-
+        cs = _lr_policy_configuration_space(cs=cs, policy='exp')
         return cs
 
 
@@ -204,21 +189,7 @@ class SGDStepConstFeedNet(SGDConstFeedNet):
     @staticmethod
     def get_hyperparameter_search_space(dataset_properties=None):
         cs = SGDConstFeedNet.get_hyperparameter_search_space()
-        lr_policy = Constant(name='lr_policy', value='step')
-
-        gamma = UniformFloatHyperparameter(name="gamma",
-                                           lower=1e-2, upper=1.0,
-                                           log=True,
-                                           default=1e-2)
-
-        epoch_step = CategoricalHyperparameter("epoch_step",
-                                               [6, 8, 12],
-                                               default=8)
-
-        cs.add_hyperparameter(lr_policy)
-        cs.add_hyperparameter(gamma)
-        cs.add_hyperparameter(epoch_step)
-
+        cs = _lr_policy_configuration_space(cs=cs, policy='step')
         return cs
 
 
@@ -240,21 +211,7 @@ class AdadeltaInvConstFeedNet(AdadeltaConstFeedNet):
     @staticmethod
     def get_hyperparameter_search_space(dataset_properties=None):
         cs = AdadeltaConstFeedNet.get_hyperparameter_search_space()
-        lr_policy = Constant(name='lr_policy', value='inv')
-
-        gamma = UniformFloatHyperparameter(name="gamma",
-                                           lower=1e-2, upper=1.0,
-                                           log=True,
-                                           default=1e-2)
-
-        power = UniformFloatHyperparameter("power",
-                                           0.0, 1.0,
-                                           default=0.5)
-
-        cs.add_hyperparameter(lr_policy)
-        cs.add_hyperparameter(gamma)
-        cs.add_hyperparameter(power)
-
+        cs = _lr_policy_configuration_space(cs=cs, policy='inv')
         return cs
 
 
@@ -263,14 +220,7 @@ class AdadeltaExpConstFeedNet(AdadeltaConstFeedNet):
     @staticmethod
     def get_hyperparameter_search_space(dataset_properties=None):
         cs = AdadeltaConstFeedNet.get_hyperparameter_search_space()
-        lr_policy = Constant(name='lr_policy', value='exp')
-
-        gamma = UniformFloatHyperparameter(name="gamma",
-                                           lower=0.7, upper=1.0,
-                                           default=0.79)
-
-        cs.add_hyperparameter(lr_policy)
-        cs.add_hyperparameter(gamma)
+        cs = _lr_policy_configuration_space(cs=cs, policy='exp')
 
         return cs
 
@@ -280,21 +230,7 @@ class AdadeltaStepConstFeedNet(AdadeltaConstFeedNet):
     @staticmethod
     def get_hyperparameter_search_space(dataset_properties=None):
         cs = AdadeltaConstFeedNet.get_hyperparameter_search_space()
-        lr_policy = Constant(name='lr_policy', value='step')
-
-        gamma = UniformFloatHyperparameter(name="gamma",
-                                           lower=1e-2, upper=1.0,
-                                           log=True,
-                                           default=1e-2)
-
-        epoch_step = CategoricalHyperparameter("epoch_step",
-                                               [6, 8, 12],
-                                               default=8)
-
-        cs.add_hyperparameter(lr_policy)
-        cs.add_hyperparameter(gamma)
-        cs.add_hyperparameter(epoch_step)
-
+        cs = _lr_policy_configuration_space(cs=cs, policy='step')
         return cs
 
 
@@ -314,21 +250,7 @@ class AdagradInvConstFeedNet(AdagradConstFeedNet):
     @staticmethod
     def get_hyperparameter_search_space(dataset_properties=None):
         cs = AdagradConstFeedNet.get_hyperparameter_search_space()
-        lr_policy = Constant(name='lr_policy', value='inv')
-
-        gamma = UniformFloatHyperparameter(name="gamma",
-                                           lower=1e-2, upper=1.0,
-                                           log=True,
-                                           default=1e-2)
-
-        power = UniformFloatHyperparameter("power",
-                                           0.0, 1.0,
-                                           default=0.5)
-
-        cs.add_hyperparameter(lr_policy)
-        cs.add_hyperparameter(gamma)
-        cs.add_hyperparameter(power)
-
+        cs = _lr_policy_configuration_space(cs=cs, policy='inv')
         return cs
 
 
@@ -337,15 +259,7 @@ class AdagradExpConstFeedNet(AdagradConstFeedNet):
     @staticmethod
     def get_hyperparameter_search_space(dataset_properties=None):
         cs = AdagradConstFeedNet.get_hyperparameter_search_space()
-        lr_policy = Constant(name='lr_policy', value='exp')
-
-        gamma = UniformFloatHyperparameter(name="gamma",
-                                           lower=0.7, upper=1.0,
-                                           default=0.79)
-
-        cs.add_hyperparameter(lr_policy)
-        cs.add_hyperparameter(gamma)
-
+        cs = _lr_policy_configuration_space(cs=cs, policy='exp')
         return cs
 
 
@@ -354,21 +268,7 @@ class AdagradStepConstFeedNet(AdagradConstFeedNet):
     @staticmethod
     def get_hyperparameter_search_space(dataset_properties=None):
         cs = AdagradConstFeedNet.get_hyperparameter_search_space()
-        lr_policy = Constant(name='lr_policy', value='step')
-
-        gamma = UniformFloatHyperparameter(name="gamma",
-                                           lower=1e-2, upper=1.0,
-                                           log=True,
-                                           default=1e-2)
-
-        epoch_step = CategoricalHyperparameter("epoch_step",
-                                               [6, 8, 12],
-                                               default=8)
-
-        cs.add_hyperparameter(lr_policy)
-        cs.add_hyperparameter(gamma)
-        cs.add_hyperparameter(epoch_step)
-
+        cs = _lr_policy_configuration_space(cs=cs, policy='step')
         return cs
 
 
@@ -392,21 +292,7 @@ class NesterovInvConstFeedNet(NesterovConstFeedNet):
     @staticmethod
     def get_hyperparameter_search_space(dataset_properties=None):
         cs = NesterovConstFeedNet.get_hyperparameter_search_space()
-        lr_policy = Constant(name='lr_policy', value='inv')
-
-        gamma = UniformFloatHyperparameter(name="gamma",
-                                           lower=1e-2, upper=1.0,
-                                           log=True,
-                                           default=1e-2)
-
-        power = UniformFloatHyperparameter("power",
-                                           0.0, 1.0,
-                                           default=0.5)
-
-        cs.add_hyperparameter(lr_policy)
-        cs.add_hyperparameter(gamma)
-        cs.add_hyperparameter(power)
-
+        cs = _lr_policy_configuration_space(cs=cs, policy='inv')
         return cs
 
 
@@ -415,15 +301,7 @@ class NesterovExpConstFeedNet(NesterovConstFeedNet):
     @staticmethod
     def get_hyperparameter_search_space(dataset_properties=None):
         cs = NesterovConstFeedNet.get_hyperparameter_search_space()
-        lr_policy = Constant(name='lr_policy', value='exp')
-
-        gamma = UniformFloatHyperparameter(name="gamma",
-                                           lower=0.7, upper=1.0,
-                                           default=0.79)
-
-        cs.add_hyperparameter(lr_policy)
-        cs.add_hyperparameter(gamma)
-
+        cs = _lr_policy_configuration_space(cs=cs, policy='exp')
         return cs
 
 
@@ -432,21 +310,7 @@ class NesterovStepConstFeedNet(NesterovConstFeedNet):
     @staticmethod
     def get_hyperparameter_search_space(dataset_properties=None):
         cs = NesterovConstFeedNet.get_hyperparameter_search_space()
-        lr_policy = Constant(name='lr_policy', value='step')
-
-        gamma = UniformFloatHyperparameter(name="gamma",
-                                           lower=1e-2, upper=1e-1,
-                                           log=True,
-                                           default=1e-2)
-
-        epoch_step = CategoricalHyperparameter("epoch_step",
-                                               [6, 8, 12],
-                                               default=8)
-
-        cs.add_hyperparameter(lr_policy)
-        cs.add_hyperparameter(gamma)
-        cs.add_hyperparameter(epoch_step)
-
+        cs = _lr_policy_configuration_space(cs=cs, policy='step')
         return cs
 
 
@@ -470,21 +334,7 @@ class MomentumInvConstFeedNet(MomentumConstFeedNet):
     @staticmethod
     def get_hyperparameter_search_space(dataset_properties=None):
         cs = MomentumConstFeedNet.get_hyperparameter_search_space()
-        lr_policy = Constant(name='lr_policy', value='inv')
-
-        gamma = UniformFloatHyperparameter(name="gamma",
-                                           lower=1e-2, upper=1.0,
-                                           log=True,
-                                           default=1e-2)
-
-        power = UniformFloatHyperparameter("power",
-                                           0.0, 1.0,
-                                           default=0.5)
-
-        cs.add_hyperparameter(lr_policy)
-        cs.add_hyperparameter(gamma)
-        cs.add_hyperparameter(power)
-
+        cs = _lr_policy_configuration_space(cs=cs, policy='inv')
         return cs
 
 
@@ -493,15 +343,7 @@ class MomentumExpConstFeedNet(MomentumConstFeedNet):
     @staticmethod
     def get_hyperparameter_search_space(dataset_properties=None):
         cs = MomentumConstFeedNet.get_hyperparameter_search_space()
-        lr_policy = Constant(name='lr_policy', value='exp')
-
-        gamma = UniformFloatHyperparameter(name="gamma",
-                                           lower=0.7, upper=1.0,
-                                           default=0.79)
-
-        cs.add_hyperparameter(lr_policy)
-        cs.add_hyperparameter(gamma)
-
+        cs = _lr_policy_configuration_space(cs=cs, policy='exp')
         return cs
 
 
@@ -510,19 +352,5 @@ class MomentumStepConstFeedNet(MomentumConstFeedNet):
     @staticmethod
     def get_hyperparameter_search_space(dataset_properties=None):
         cs = MomentumConstFeedNet.get_hyperparameter_search_space()
-        lr_policy = Constant(name='lr_policy', value='step')
-
-        gamma = UniformFloatHyperparameter(name="gamma",
-                                           lower=1e-2, upper=1.0,
-                                           log=True,
-                                           default=1e-2)
-
-        epoch_step = CategoricalHyperparameter("epoch_step",
-                                               [6, 8, 12],
-                                               default=8)
-
-        cs.add_hyperparameter(lr_policy)
-        cs.add_hyperparameter(gamma)
-        cs.add_hyperparameter(epoch_step)
-
+        cs = _lr_policy_configuration_space(cs=cs, policy='step')
         return cs
