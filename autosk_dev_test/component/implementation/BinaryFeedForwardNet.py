@@ -143,4 +143,4 @@ class BinaryFeedForwardNet(object):
         if is_sparse:
             X = S.basic.as_sparse_or_tensor_variable(X)
         predictions = lasagne.layers.get_output(self.network, X, deterministic=True).eval()
-        return predictions
+        return np.append(1 - predictions, predictions, axis=1)

@@ -34,9 +34,9 @@ class FeedForwardNet(object):
                  dropout_per_layer=(0.5, 0.5, 0.5), std_per_layer=(0.005, 0.005, 0.005),
                  num_output_units=2, dropout_output=0.5, learning_rate=0.01,
                  lambda2=1e-4, momentum=0.9, beta1=0.9, beta2=0.9,
-                 rho=0.95, solver="sgd", num_epochs=2,
+                 rho=0.95, solver="sgd", num_epochs=2, activation='relu',
                  lr_policy="fixed", gamma=0.01, power=1.0, epoch_step=1,
-                 is_sparse=False):
+                 is_sparse=False, is_binary=False):
 
         self.batch_size = batch_size
         self.input_shape = input_shape
@@ -62,15 +62,23 @@ class FeedForwardNet(object):
         else:
             self.power = power
         self.epoch_step = epoch_step
+        self.is_binary = is_binary
+        self.solver = solver
+        self.activation = activation
 
         if is_sparse:
             input_var = S.csr_matrix('inputs', dtype='float32')
         else:
-            # dMatrix forces the tensor var to be of float64 and clashes
-            # with the THEANO_FLAGS in the cluster
             input_var = T.matrix('inputs')
-        target_var = T.lvector('targets')
+
+        if self.is_binary:
+            target_var = T.lmatrix('targets')
+        else:
+            target_var = T.lvector('targets')
+
         if DEBUG:
+            if self.is_binary:
+                print("... using binary loss")
             print("... building network")
             print input_shape
             print("... with number of epochs")
@@ -78,6 +86,15 @@ class FeedForwardNet(object):
 
         self.network = lasagne.layers.InputLayer(shape=input_shape,
                                                  input_var=input_var)
+
+        # Choose hidden activation function
+        if self.is_binary:
+            activation_function = self.binary_activation.get(self.activation,
+                                                             lasagne.nonlinearities.rectify)
+        else:
+            activation_function = self.multiclass_activation.get(self.activation,
+                                                                 lasagne.nonlinearities.sigmoid)
+
         # Define each layer
         for i in range(num_layers - 1):
             self.network = lasagne.layers.DenseLayer(
@@ -86,19 +103,31 @@ class FeedForwardNet(object):
                  num_units=self.num_units_per_layer[i],
                  W=lasagne.init.Normal(std=self.std_per_layer[i], mean=0),
                  b=lasagne.init.Constant(val=0.0),
-                 nonlinearity=lasagne.nonlinearities.rectify)
+                 nonlinearity=activation_function)
 
-        # Define output layer
+        # Define output layer and nonlinearity of last layer
+        if self.is_binary:
+            output_activation = lasagne.nonlinearities.sigmoid
+        else:
+            output_activation = lasagne.nonlinearities.softmax
+
         self.network = lasagne.layers.DenseLayer(
-                 lasagne.layers.dropout(self.network, p=self.dropout_output),
+                 lasagne.layers.dropout(self.network,
+                                        p=self.dropout_output),
                  num_units=self.num_output_units,
                  W=lasagne.init.GlorotNormal(),
                  b=lasagne.init.Constant(),
-                 nonlinearity=lasagne.nonlinearities.softmax)
+                 nonlinearity=output_activation)
 
         prediction = lasagne.layers.get_output(self.network)
-        loss = lasagne.objectives.categorical_crossentropy(prediction,
-                                                           target_var)
+
+        if self.is_binary:
+            loss_function = lasagne.objectives.binary_hinge_loss
+        else:
+            loss_function = lasagne.objectives.categorical_crossentropy
+
+        loss = loss_function(prediction, target_var)
+
         # Aggregate loss mean function with l2 Regularization on all layers' params
         loss = loss.mean()
         l2_penalty = self.lambda2 * lasagne.regularization.regularize_network_params(
@@ -107,7 +136,6 @@ class FeedForwardNet(object):
         params = lasagne.layers.get_all_params(self.network, trainable=True)
 
         # Create the symbolic scalar lr for loss & updates function
-        # EXCEPT for adam as it creates its own lr steps (only pass initial lr)
         lr_scalar = T.scalar('lr', dtype=theano.config.floatX)
 
         if solver == "nesterov":
@@ -144,10 +172,11 @@ class FeedForwardNet(object):
                                         loss,
                                         updates=updates,
                                         allow_input_downcast=True,
+                                        profile=False,
                                         on_unused_input='warn')
-        self.update_function = self.policy_function()
+        self.update_function = self._policy_function()
 
-    def policy_function(self):
+    def _policy_function(self):
         epoch, gm, powr, step = T.scalars('epoch', 'gm', 'powr', 'step')
         if self.lr_policy == 'inv':
             decay = T.power(1+gm*epoch, -powr)
@@ -168,8 +197,7 @@ class FeedForwardNet(object):
         for epoch in range(self.num_epochs):
             train_err = 0
             train_batches = 0
-            for batch in iterate_minibatches(X, y, self.batch_size, shuffle=True):
-                inputs, targets = batch
+            for inputs, targets in iterate_minibatches(X, y, self.batch_size, shuffle=True):
                 train_err += self.train_fn(inputs, targets, self.learning_rate)
                 train_batches += 1
             decay = self.update_function(self.gamma, epoch+1,
@@ -187,4 +215,31 @@ class FeedForwardNet(object):
         if is_sparse:
             X = S.basic.as_sparse_or_tensor_variable(X)
         predictions = lasagne.layers.get_output(self.network, X, deterministic=True).eval()
-        return predictions
+        if self.is_binary:
+            return np.append(1 - predictions, predictions, axis=1)
+        else:
+            return predictions
+
+    # TODO: Maybe create a utility module for constants
+    multiclass_activation = {
+        'softmax': lasagne.nonlinearities.softmax,
+        'relu': lasagne.nonlinearities.rectify,
+        'leaky': lasagne.nonlinearities.leaky_rectify,
+        'very_leaky': lasagne.nonlinearities.very_leaky_rectify,
+        'elu': lasagne.nonlinearities.elu,
+        'softplus': lasagne.nonlinearities.softplus,
+        'linear': lasagne.nonlinearities.linear,
+        'scaledTanh': lasagne.nonlinearities.ScaledTanH(scale_in=2./3.,
+                                                        scale_out=1.7159)
+    }
+
+    binary_activation = {
+        'sigmoid': lasagne.nonlinearities.sigmoid,
+        'softplus': lasagne.nonlinearities.softplus,
+        'tahn': lasagne.nonlinearities.tanh,
+        'scaledTanh': lasagne.nonlinearities.ScaledTanH(scale_in=2./3.,
+                                                        scale_out=1.7159),
+        'elu': lasagne.nonlinearities.elu,
+        'relu': lasagne.nonlinearities.rectify,
+    }
+

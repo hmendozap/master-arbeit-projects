@@ -17,7 +17,7 @@ class DeepFeedNet(AutoSklearnClassificationAlgorithm):
 
     def __init__(self, number_updates, batch_size, num_layers, num_units_layer_1,
                  dropout_layer_1, dropout_output, std_layer_1,
-                 learning_rate, solver, lambda2,
+                 learning_rate, solver, lambda2, activation,
                  num_units_layer_2=10, num_units_layer_3=10, num_units_layer_4=10,
                  num_units_layer_5=10, num_units_layer_6=10,
                  dropout_layer_2=0.5, dropout_layer_3=0.5, dropout_layer_4=0.5,
@@ -41,9 +41,16 @@ class DeepFeedNet(AutoSklearnClassificationAlgorithm):
         self.beta2 = 1-beta2
         self.rho = rho
         self.solver = solver
+        self.activation = activation
         self.gamma = gamma
         self.power = power
         self.epoch_step = epoch_step
+
+        # Empty features and shape
+        self.n_features = None
+        self.input_shape = None
+        self.m_issparse = False
+        self.m_isbinary = False
 
         # To avoid eval call. Could be done with **karws
         args = locals()
@@ -57,20 +64,39 @@ class DeepFeedNet(AutoSklearnClassificationAlgorithm):
             self.std_per_layer.append(float(args.get("std_layer_" + str(i))))
         self.estimator = None
 
-    def fit(self, X, y):
+    def _prefit(self, X, y):
         self.batch_size = int(self.batch_size)
-
         self.n_features = X.shape[1]
         self.input_shape = (self.batch_size, self.n_features)
-        num_output_units = len(np.unique(y.astype(int)))
+        number_classes = len(np.unique(y.astype(int)))
 
-        assert len(self.num_units_per_layer) == self.num_layers - 1
-        assert len(self.dropout_per_layer) == self.num_layers - 1
+        assert len(self.num_units_per_layer) == self.num_layers - 1,\
+            "Number of created layers is different than actual layers"
+        assert len(self.dropout_per_layer) == self.num_layers - 1,\
+            "Number of created layers is different than actual layers"
 
-        m_issparse = sp.issparse(X)
+        if len(y.shape) == 2 and y.shape[1] > 1:
+            # TODO: Have to check in case that is multilabel
+            raise NotImplementedError("NN Multilabel classification"
+                                      "not yet implemented")
 
-        # Calculate the number of epochs
-        # TODO: Calculate correctly how updates influence the model
+        # Make it binary
+        if number_classes == 2:
+            self.m_isbinary = True
+            self.num_output_units = 1
+            if len(y.shape) == 1:
+                y = y[:, np.newaxis]
+        else:
+            self.num_output_units = number_classes
+
+        self.m_issparse = sp.issparse(X)
+
+        return X, y
+
+    def fit(self, X, y):
+
+        Xf, yf = self._prefit(X, y)
+
         epoch = (self.number_updates * self.batch_size)//X.shape[0]
         number_epochs = max(2, epoch)
         # number_epochs = min(max(2, epoch), 30)
@@ -81,7 +107,7 @@ class DeepFeedNet(AutoSklearnClassificationAlgorithm):
                                                        num_units_per_layer=self.num_units_per_layer,
                                                        dropout_per_layer=self.dropout_per_layer,
                                                        std_per_layer=self.std_per_layer,
-                                                       num_output_units=num_output_units,
+                                                       num_output_units=self.num_output_units,
                                                        dropout_output=self.dropout_output,
                                                        learning_rate=self.learning_rate,
                                                        lr_policy=self.lr_policy,
@@ -91,12 +117,14 @@ class DeepFeedNet(AutoSklearnClassificationAlgorithm):
                                                        beta2=self.beta2,
                                                        rho=self.rho,
                                                        solver=self.solver,
+                                                       activation=self.activation,
                                                        num_epochs=number_epochs,
                                                        gamma=self.gamma,
                                                        power=self.power,
                                                        epoch_step=self.epoch_step,
-                                                       is_sparse=m_issparse)
-        self.estimator.fit(X, y)
+                                                       is_sparse=self.m_issparse,
+                                                       is_binary=self.m_isbinary)
+        self.estimator.fit(Xf, yf)
         return self
 
     def predict(self, X):
@@ -135,6 +163,13 @@ class DeepFeedNet(AutoSklearnClassificationAlgorithm):
         solver_choices = ["adam", "adadelta", "adagrad", "sgd", "momentum", "nesterov"]
 
         policy_choices = ['fixed', 'inv', 'exp', 'step']
+
+        # TODO: Add ScaledTanh hyperparamteres and Leakyrectify
+        binary_activations = ['sigmoid', 'tanh', 'scaledTanh', 'softplus',
+                              'elu', 'relu']
+
+        multiclass_activations = ['relu', 'leaky', 'very_leaky', 'elu',
+                                  'softplus', 'softmax', 'linear', 'scaledTanh']
 
         # Hacky way to condition layers params based on the number of layers
         # 'c'=2, 'd'=3, 'e'=4 ,'f'=5, 'g'=6, 'h'=7
@@ -281,6 +316,17 @@ class DeepFeedNet(AutoSklearnClassificationAlgorithm):
                                                   2, 10,
                                                   default=2)
 
+        if (dataset_properties is not None and
+                dataset_properties.get('multiclass') is False):
+
+            non_linearities = CategoricalHyperparameter(name='activation',
+                                                        choices=binary_activations,
+                                                        default='sigmoid')
+        else:
+            non_linearities = CategoricalHyperparameter(name='activation',
+                                                        choices=multiclass_activations,
+                                                        default='relu')
+
         cs = ConfigurationSpace()
         # cs.add_hyperparameter(number_epochs)
         cs.add_hyperparameter(number_updates)
@@ -316,6 +362,7 @@ class DeepFeedNet(AutoSklearnClassificationAlgorithm):
         cs.add_hyperparameter(gamma)
         cs.add_hyperparameter(power)
         cs.add_hyperparameter(epoch_step)
+        cs.add_hyperparameter(non_linearities)
 
         # TODO: Put this conditioning in a for-loop
         # Condition layers parameter on layer choice
