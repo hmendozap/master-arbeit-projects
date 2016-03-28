@@ -76,8 +76,9 @@ class DeepFeedNet(AutoSklearnClassificationAlgorithm):
             "Number of created layers is different than actual layers"
 
         if len(y.shape) == 2 and y.shape[1] > 1:
-            # TODO: Have to check
-            pass
+            # TODO: Have to check in case that is multilabel
+            raise NotImplementedError("NN Multilabel classification"
+                                      "not yet implemented")
 
         # Make it binary
         if number_classes == 2:
