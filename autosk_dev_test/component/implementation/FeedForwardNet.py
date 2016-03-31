@@ -36,7 +36,7 @@ class FeedForwardNet(object):
                  lambda2=1e-4, momentum=0.9, beta1=0.9, beta2=0.9,
                  rho=0.95, solver="sgd", num_epochs=2, activation='relu',
                  lr_policy="fixed", gamma=0.01, power=1.0, epoch_step=1,
-                 is_sparse=False, is_binary=False):
+                 is_sparse=False, is_binary=False, is_regression=False):
 
         self.batch_size = batch_size
         self.input_shape = input_shape
@@ -63,6 +63,7 @@ class FeedForwardNet(object):
             self.power = power
         self.epoch_step = epoch_step
         self.is_binary = is_binary
+        self.is_regression = is_regression
         self.solver = solver
         self.activation = activation
 
@@ -121,7 +122,9 @@ class FeedForwardNet(object):
 
         prediction = lasagne.layers.get_output(self.network)
 
-        if self.is_binary:
+        if self.is_regression:
+            loss_function = lasagne.objectives.loss_square
+        elif self.is_binary:
             loss_function = lasagne.objectives.binary_hinge_loss
         else:
             loss_function = lasagne.objectives.categorical_crossentropy
