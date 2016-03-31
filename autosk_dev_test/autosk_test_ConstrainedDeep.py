@@ -20,9 +20,9 @@ y_train = np.argmax(y_train, axis=1)
 # Create model
 modl = autosk.AutoML(time_left_for_this_task=600, per_run_time_limit=90,
                      delete_tmp_folder_after_terminate=False,
-                     tmp_dir='tmp/constr_nn', output_dir='tmp/autosk_out',
+                     tmp_dir='tmp/activation_nn', output_dir='tmp/autosk_out',
                      log_dir='tmp/autosk_log',
-                     include_estimators=['MomentumExpConstFeedNet'],
+                     include_estimators=['DeepFeedNet'],
                      include_preprocessors=['NoPreprocessing'],
                      ensemble_size=0,
                      ensemble_nbest=0,
@@ -36,4 +36,4 @@ modl = autosk.AutoML(time_left_for_this_task=600, per_run_time_limit=90,
                      resampling_strategy='partial-cv',
                      resampling_strategy_arguments={'folds': 10})
 
-modl.fit(X_train, y_train, dataset_name='Constrained_MNIST')
+modl.fit(X_train, y_train, dataset_name='Activation_MNIST')
