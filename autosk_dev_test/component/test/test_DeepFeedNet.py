@@ -12,7 +12,7 @@ import theano.sparse as S
 
 class NetComponentTest(unittest.TestCase):
     home_dir = os.environ['HOME']
-    dataset_dir = os.path.join(home_dir, 'workspace/datasets/dataset_728/')
+    dataset_dir = 
 
     X_train = np.load(dataset_dir + 'train.npy')
     y_train = np.load(dataset_dir + 'train_labels.npy')
