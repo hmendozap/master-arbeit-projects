@@ -5,9 +5,9 @@ for i in $( find . -name scenario.txt );
 do
     echo "${i}"
     sed -i.bak '/cli-log-all-calls = false/d' ${i};
-    sed -i.bak '/transform-crashed-quality-value = 2/d' ${i};
-    sed -i.bak '/console-log-level = DEBUG/d' ${i};
-    sed -i.bak '/log-level = DEBUG/d' ${i};
+    sed -i '/transform-crashed-quality-value = 2/d' ${i};
+    sed -i '/console-log-level = DEBUG/d' ${i};
+    sed -i '/log-level = DEBUG/d' ${i};
 done
 
 # Run this command to merge runs

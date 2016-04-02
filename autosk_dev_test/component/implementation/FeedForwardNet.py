@@ -80,6 +80,8 @@ class FeedForwardNet(object):
         if DEBUG:
             if self.is_binary:
                 print("... using binary loss")
+            if self.is_regression:
+                print("... using regression loss")
             print("... building network")
             print input_shape
             print("... with number of epochs")
@@ -123,7 +125,7 @@ class FeedForwardNet(object):
         prediction = lasagne.layers.get_output(self.network)
 
         if self.is_regression:
-            loss_function = lasagne.objectives.loss_square
+            loss_function = lasagne.objectives.squared_error
         elif self.is_binary:
             loss_function = lasagne.objectives.binary_hinge_loss
         else:
