@@ -94,7 +94,7 @@ class DeepFeedNet(AutoSklearnClassificationAlgorithm):
         Xf, yf = self._prefit(X, y)
 
         epoch = (self.number_updates * self.batch_size)//X.shape[0]
-        number_epochs = min(max(2, epoch), 50)  # Capping of epochs
+        number_epochs = min(max(2, epoch), 30)  # Capping of epochs
 
         self.estimator = FeedForwardNet.FeedForwardNet(batch_size=self.batch_size,
                                                        input_shape=self.input_shape,

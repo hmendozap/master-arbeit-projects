@@ -177,7 +177,7 @@ class FeedForwardNet(object):
                                         loss,
                                         updates=updates,
                                         allow_input_downcast=True,
-                                        profile=False,
+                                        profile=True,
                                         on_unused_input='warn')
         self.update_function = self._policy_function()
 
@@ -199,6 +199,8 @@ class FeedForwardNet(object):
                                on_unused_input='ignore')
 
     def fit(self, X, y):
+        # TODO: If batch size is bigger than available points
+        # training is not executed.
         for epoch in range(self.num_epochs):
             train_err = 0
             train_batches = 0
