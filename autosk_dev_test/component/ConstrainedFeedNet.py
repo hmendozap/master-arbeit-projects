@@ -1,7 +1,7 @@
 # -*- encoding: utf-8 -*-
 
-from HPOlibConfigSpace.configuration_space import ConfigurationSpace
-from HPOlibConfigSpace.hyperparameters import Constant, CategoricalHyperparameter, \
+from ConfigSpace.configuration_space import ConfigurationSpace
+from ConfigSpace.hyperparameters import Constant, CategoricalHyperparameter, \
     UniformFloatHyperparameter, UniformIntegerHyperparameter
 
 from .DeepFeedNet import DeepFeedNet
