@@ -1,0 +1,94 @@
+Function profiling
+==================
+  Message: /home/mendozah/autoskLearn_Setup/auto-sklearn/autosklearn/pipeline/implementations/FeedForwardNet.py:181
+  Time in 494 calls to Function.__call__: 4.197247e+01s
+  Time in Function.fn.__call__: 4.140174e+01s (98.640%)
+  Time in thunks: 4.108850e+01s (97.894%)
+  Total compile time: 5.564671e-01s
+    Number of Apply nodes: 72
+    Theano Optimizer time: 3.612711e-01s
+       Theano validate time: 2.225304e-02s
+    Theano Linker time (includes C, CUDA code generation/compiling): 1.603050e-01s
+       Import time 9.238815e-02s
+
+Time in all call to theano.grad() 2.564502e-02s
+Time since theano import 55.367s
+Class
+---
+<% time> <sum %> <apply time> <time per call> <type> <#call> <#apply> <Class name>
+  88.6%    88.6%      36.396s       3.68e-02s     Py     988       2   theano.sparse.basic.Dot
+   3.3%    91.8%       1.338s       6.77e-04s     C     1976       4   theano.sandbox.cuda.basic_ops.GpuCAReduce
+   2.9%    94.7%       1.176s       3.97e-04s     C     2964       6   theano.sandbox.cuda.basic_ops.HostFromGpu
+   1.7%    96.4%       0.715s       6.03e-05s     C    11856      24   theano.sandbox.cuda.basic_ops.GpuElemwise
+   1.4%    97.9%       0.585s       2.96e-04s     C     1976       4   theano.sandbox.cuda.basic_ops.GpuFromHost
+   0.7%    98.6%       0.297s       3.01e-04s     C      988       2   theano.sandbox.rng_mrg.GPU_mrg_uniform
+   0.5%    99.1%       0.216s       4.37e-04s     C      494       1   theano.sparse.opt.MulSDCSR
+   0.2%    99.3%       0.082s       1.66e-04s     Py     494       1   theano.sparse.basic.MulSD
+   0.2%    99.5%       0.066s       1.33e-04s     Py     494       1   theano.sparse.basic.CSM
+   0.1%    99.6%       0.056s       1.13e-04s     C      494       1   theano.sandbox.cuda.blas.GpuDot22Scalar
+   0.1%    99.7%       0.050s       1.02e-04s     Py     494       1   theano.sparse.basic.Transpose
+   0.1%    99.8%       0.042s       8.45e-05s     C      494       1   theano.sandbox.cuda.blas.GpuGemm
+   0.1%    99.9%       0.038s       7.70e-05s     C      494       1   theano.sandbox.cuda.blas.GpuDot22
+   0.0%   100.0%       0.013s       3.25e-06s     C     3952       8   theano.tensor.elemwise.Elemwise
+   0.0%   100.0%       0.007s       1.42e-05s     Py     494       1   theano.sparse.basic.CSMProperties
+   0.0%   100.0%       0.005s       5.06e-06s     PyC      988       2   theano.compile.ops.Shape_i
+   0.0%   100.0%       0.004s       1.51e-06s     C     2964       6   theano.sandbox.cuda.basic_ops.GpuDimShuffle
+   0.0%   100.0%       0.001s       2.04e-06s     C      494       1   theano.tensor.elemwise.Sum
+   0.0%   100.0%       0.001s       8.34e-07s     C      988       2   theano.tensor.subtensor.Subtensor
+   0.0%   100.0%       0.001s       1.25e-06s     C      494       1   theano.tensor.opt.MakeVector
+   ... (remaining 1 Classes account for   0.00%(0.00s) of the runtime)
+
+Ops
+---
+<% time> <sum %> <apply time> <time per call> <type> <#call> <#apply> <Op name>
+  88.6%    88.6%      36.396s       3.68e-02s     Py     988        2   SparseDot
+   3.0%    91.6%       1.229s       1.24e-03s     C      988        2   GpuCAReduce{pre=sqr,red=add}{1,1}
+   2.9%    94.4%       1.176s       3.97e-04s     C     2964        6   HostFromGpu
+   1.4%    95.9%       0.585s       2.96e-04s     C     1976        4   GpuFromHost
+   0.7%    96.6%       0.297s       3.01e-04s     C      988        2   GPU_mrg_uniform{CudaNdarrayType(float32, matrix),inplace}
+   0.5%    97.1%       0.216s       4.37e-04s     C      494        1   MulSDCSR
+   0.4%    97.5%       0.169s       3.42e-04s     C      494        1   GpuElemwise{Add}[(0, 0)]
+   0.3%    97.8%       0.109s       1.11e-04s     C      988        2   GpuCAReduce{add}{1,0}
+   0.3%    98.0%       0.108s       2.19e-04s     C      494        1   GpuElemwise{Composite{(i0 * (i1 + (i2 * i3)))}}[(0, 1)]
+   0.2%    98.3%       0.097s       4.92e-05s     C     1976        4   GpuElemwise{Composite{(i0 + (i1 - i2))}}[(0, 1)]
+   0.2%    98.5%       0.085s       2.87e-05s     C     2964        6   GpuElemwise{Mul}[(0, 1)]
+   0.2%    98.7%       0.082s       1.66e-04s     Py     494        1   MulSD
+   0.2%    98.9%       0.078s       3.97e-05s     C     1976        4   GpuElemwise{Sub}[(0, 0)]
+   0.2%    99.0%       0.067s       6.79e-05s     C      988        2   GpuElemwise{Composite{Cast{float32}(LT(i0, i1))}}[(0, 0)]
+   0.2%    99.2%       0.066s       1.33e-04s     Py     494        1   CSM{format='csr'}
+   0.1%    99.3%       0.061s       1.23e-04s     C      494        1   GpuElemwise{Composite{(i0 * (i1 + Abs(i1)) * i2)},no_inplace}
+   0.1%    99.5%       0.056s       1.13e-04s     C      494        1   GpuDot22Scalar
+   0.1%    99.6%       0.050s       1.02e-04s     Py     494        1   SparseTranspose
+   0.1%    99.7%       0.042s       8.45e-05s     C      494        1   GpuGemm{no_inplace}
+   0.1%    99.8%       0.038s       7.70e-05s     C      494        1   GpuDot22
+   ... (remaining 23 Ops account for   0.20%(0.08s) of the runtime)
+
+Apply
+------
+<% time> <sum %> <apply time> <time per call> <#call> <id> <Apply name>
+  45.4%    45.4%      18.675s       3.78e-02s    494    34   SparseDot(SparseVariable{csr,float32}, HostFromGpu.0)
+  43.1%    88.6%      17.722s       3.59e-02s    494    59   SparseDot(SparseVariable{csc,float32}, HostFromGpu.0)
+   3.0%    91.5%       1.219s       2.47e-03s    494     7   GpuCAReduce{pre=sqr,red=add}{1,1}(W)
+   1.4%    92.9%       0.571s       1.16e-03s    494     6   HostFromGpu(W)
+   1.2%    94.1%       0.482s       9.77e-04s    494    26   HostFromGpu(GpuElemwise{Composite{Cast{float32}(LT(i0, i1))}}[(0, 0)].0)
+   1.1%    95.2%       0.446s       9.02e-04s    494    61   GpuFromHost(SparseDot.0)
+   0.6%    95.8%       0.236s       4.78e-04s    494    10   GPU_mrg_uniform{CudaNdarrayType(float32, matrix),inplace}(<CudaNdarrayType(float32, vector)>, TensorConstant{[ 512 3000]})
+   0.5%    96.3%       0.216s       4.37e-04s    494    29   MulSDCSR(CSMProperties.0, CSMProperties.1, CSMProperties.2, HostFromGpu.0)
+   0.4%    96.7%       0.169s       3.42e-04s    494    37   GpuElemwise{Add}[(0, 0)](GpuFromHost.0, GpuDimShuffle{x,0}.0)
+   0.3%    97.0%       0.127s       2.56e-04s    494    36   GpuFromHost(SparseDot.0)
+   0.3%    97.3%       0.108s       2.19e-04s    494    64   GpuElemwise{Composite{(i0 * (i1 + (i2 * i3)))}}[(0, 1)](GpuDimShuffle{x,x}.0, GpuFromHost.0, CudaNdarrayConstant{[[ 0.0002921]]}, W)
+   0.3%    97.5%       0.105s       2.12e-04s    494    56   HostFromGpu(GpuElemwise{Composite{((i0 * i1) + (i0 * i1 * sgn(i2)))}}[(0, 0)].0)
+   0.2%    97.7%       0.082s       1.66e-04s    494     8   MulSD(SparseVariable{csr,float32}, TensorConstant{10.0154514313})
+   0.2%    97.9%       0.081s       1.63e-04s    494    66   GpuElemwise{Composite{(i0 + (i1 - i2))}}[(0, 1)](GpuElemwise{Mul}[(0, 1)].0, W, GpuElemwise{Composite{(i0 * (i1 + (i2 * i3)))}}[(0, 1)].0)
+   0.2%    98.1%       0.066s       1.33e-04s    494    32   CSM{format='csr'}(MulSDCSR.0, CSMProperties.1, CSMProperties.2, CSMProperties.3)
+   0.1%    98.2%       0.061s       1.24e-04s    494     4   GPU_mrg_uniform{CudaNdarrayType(float32, matrix),inplace}(<CudaNdarrayType(float32, vector)>, TensorConstant{(2,) of 512})
+   0.1%    98.4%       0.061s       1.23e-04s    494    38   GpuElemwise{Composite{(i0 * (i1 + Abs(i1)) * i2)},no_inplace}(CudaNdarrayConstant{[[ 0.62111336]]}, GpuElemwise{Add}[(0, 0)].0, GpuElemwise{Composite{Cast{float32}(LT(i0, i1))}}[(0, 0)].0)
+   0.1%    98.5%       0.060s       1.22e-04s    494    68   GpuElemwise{Sub}[(0, 0)](GpuElemwise{Mul}[(0, 1)].0, GpuElemwise{Composite{(i0 * (i1 + (i2 * i3)))}}[(0, 1)].0)
+   0.1%    98.7%       0.060s       1.22e-04s    494    57   GpuCAReduce{add}{1,0}(GpuElemwise{Composite{((i0 * i1) + (i0 * i1 * sgn(i2)))}}[(0, 0)].0)
+   0.1%    98.8%       0.056s       1.13e-04s    494    52   GpuDot22Scalar(GpuElemwise{Composite{((i0 * i1) * (i2 - i1))}}[(0, 0)].0, GpuDimShuffle{1,0}.0, TensorConstant{0.621113359928})
+   ... (remaining 52 Apply instances account for 1.19%(0.49s) of the runtime)
+
+Here are tips to potentially make your code run faster
+                 (if you think of new ones, suggest them on the mailing list).
+                 Test them first, as they are not guaranteed to always provide a speedup.
+  - Try installing amdlibm and set the Theano flag lib.amdlibm=True. This speeds up only some Elemwise operation.
