@@ -46,6 +46,21 @@ class TestFeedForwardNet(unittest.TestCase):
         model.fit(X_train, y_train)
         print("Model fitted")
 
+    def test_multilabel_feed_implementation(self):
+        """
+        Test of multilabel-multiclass classification for feed forward networks
+        """
+        # Create artificial set
+        from sklearn.datasets import make_multilabel_classification as mmlc
+        from sklearn.preprocessing import MultiLabelBinarizer as mlb
+
+        X, Y = mmlc(n_samples=500, n_features=9, n_classes=5, n_labels=3, allow_unlabeled=False)
+        y = mlb().fit_transform(Y)
+        model = FeedForwardNet(input_shape=(20, 9), batch_size=20,
+                               learning_rate=0.2, num_output_units=5,
+                               num_epochs=25, is_binary=True)
+        model.fit(X, y)
+
     def test_lr_policies(self):
         model = FeedForwardNet(input_shape=(50, 7), batch_size=50,
                                learning_rate=0.1,

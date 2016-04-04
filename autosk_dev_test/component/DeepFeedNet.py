@@ -63,26 +63,27 @@ class DeepFeedNet(AutoSklearnClassificationAlgorithm):
         self.batch_size = int(self.batch_size)
         self.n_features = X.shape[1]
         self.input_shape = (self.batch_size, self.n_features)
-        number_classes = len(np.unique(y.astype(int)))
 
         assert len(self.num_units_per_layer) == self.num_layers - 1,\
             "Number of created layers is different than actual layers"
         assert len(self.dropout_per_layer) == self.num_layers - 1,\
             "Number of created layers is different than actual layers"
 
+        # TODO: Better if statement
+        # Multilabel
         if len(y.shape) == 2 and y.shape[1] > 1:
-            # TODO: Have to check in case that is multilabel
-            raise NotImplementedError("NN Multilabel classification"
-                                      "not yet implemented")
-
-        # Make it binary
-        if number_classes == 2:
             self.m_isbinary = True
-            self.num_output_units = 1
-            if len(y.shape) == 1:
-                y = y[:, np.newaxis]
+            self.num_output_units = y.shape[1]
         else:
-            self.num_output_units = number_classes
+            number_classes = len(np.unique(y.astype(int)))
+            # Make it binary
+            if number_classes == 2:
+                self.m_isbinary = True
+                self.num_output_units = 1
+                if len(y.shape) == 1:
+                    y = y[:, np.newaxis]
+            else:
+                self.num_output_units = number_classes
 
         self.m_issparse = sp.issparse(X)
 
@@ -93,7 +94,7 @@ class DeepFeedNet(AutoSklearnClassificationAlgorithm):
         Xf, yf = self._prefit(X, y)
 
         epoch = (self.number_updates * self.batch_size)//X.shape[0]
-        number_epochs = min(max(2, epoch), 30)  # Capping of epochs
+        number_epochs = min(max(2, epoch), 50)  # Capping of epochs
 
         from implementation import FeedForwardNet
         self.estimator = FeedForwardNet.FeedForwardNet(batch_size=self.batch_size,
@@ -147,7 +148,7 @@ class DeepFeedNet(AutoSklearnClassificationAlgorithm):
                 'handles_regression': False,
                 'handles_classification': True,
                 'handles_multiclass': True,
-                'handles_multilabel': False,
+                'handles_multilabel': True,
                 'is_deterministic': True,
                 'input': (DENSE, SPARSE, UNSIGNED_DATA),
                 'output': (PREDICTIONS,)}
