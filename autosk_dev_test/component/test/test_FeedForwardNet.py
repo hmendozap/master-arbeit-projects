@@ -33,6 +33,19 @@ class TestFeedForwardNet(unittest.TestCase):
         self.assertTrue((predicted_labels == expected_labels).all(), msg="Failed predicted probability")
         self.assertTrue((1 - predicted_probability_matrix.sum(axis=1) < 1e-3).all())
 
+    def test_regression_deep_implementation(self):
+        """
+        Test of regression implementation for feed forward networks
+        """
+        X_train = np.loadtxt('/home/mendozah/workspace/datasets/yolanda_set/yolo_data.txt')
+        y_train = np.loadtxt('/home/mendozah/workspace/datasets/yolanda_set/yolo_sol.txt')
+        y_train = y_train[:, np.newaxis]
+        model = FeedForwardNet(input_shape=(2, 100), batch_size=2,
+                               learning_rate=0.0001, num_output_units=1,
+                               num_epochs=5, is_regression=True)
+        model.fit(X_train, y_train)
+        print("Model fitted")
+
     def test_lr_policies(self):
         model = FeedForwardNet(input_shape=(50, 7), batch_size=50,
                                learning_rate=0.1,
