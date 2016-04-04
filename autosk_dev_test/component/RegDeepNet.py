@@ -10,7 +10,6 @@ from ConfigSpace.hyperparameters import UniformFloatHyperparameter, \
 
 from autosklearn.pipeline.components.base import AutoSklearnRegressionAlgorithm
 from autosklearn.pipeline.constants import *
-from implementation import FeedForwardNet
 
 
 class RegDeepNet(AutoSklearnRegressionAlgorithm):
@@ -87,6 +86,7 @@ class RegDeepNet(AutoSklearnRegressionAlgorithm):
         # number_epochs = max(2, epoch)
         number_epochs = min(max(2, epoch), 50)  # Cap the max number of possible epochs
 
+        from implementation import FeedForwardNet
         self.estimator = FeedForwardNet.FeedForwardNet(batch_size=self.batch_size,
                                                        input_shape=self.input_shape,
                                                        num_layers=self.num_layers,

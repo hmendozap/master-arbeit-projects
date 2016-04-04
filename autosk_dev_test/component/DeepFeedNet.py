@@ -9,7 +9,6 @@ from ConfigSpace.hyperparameters import UniformFloatHyperparameter, \
 
 from autosklearn.pipeline.components.base import AutoSklearnClassificationAlgorithm
 from autosklearn.pipeline.constants import *
-from implementation import FeedForwardNet
 
 
 class DeepFeedNet(AutoSklearnClassificationAlgorithm):
@@ -96,6 +95,7 @@ class DeepFeedNet(AutoSklearnClassificationAlgorithm):
         epoch = (self.number_updates * self.batch_size)//X.shape[0]
         number_epochs = min(max(2, epoch), 30)  # Capping of epochs
 
+        from implementation import FeedForwardNet
         self.estimator = FeedForwardNet.FeedForwardNet(batch_size=self.batch_size,
                                                        input_shape=self.input_shape,
                                                        num_layers=self.num_layers,
