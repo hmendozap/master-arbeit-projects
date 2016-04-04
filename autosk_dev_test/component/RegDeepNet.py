@@ -5,8 +5,7 @@ import scipy.sparse as sp
 from ConfigSpace.configuration_space import ConfigurationSpace
 from ConfigSpace.conditions import EqualsCondition, InCondition
 from ConfigSpace.hyperparameters import UniformFloatHyperparameter, \
-    UniformIntegerHyperparameter, CategoricalHyperparameter, \
-    UnParametrizedHyperparameter
+    UniformIntegerHyperparameter, CategoricalHyperparameter
 
 from autosklearn.pipeline.components.base import AutoSklearnRegressionAlgorithm
 from autosklearn.pipeline.constants import *
@@ -66,14 +65,16 @@ class RegDeepNet(AutoSklearnRegressionAlgorithm):
         self.batch_size = int(self.batch_size)
         self.n_features = X.shape[1]
         self.input_shape = (self.batch_size, self.n_features)
-        number_classes = len(np.unique(y.astype(int)))
 
         assert len(self.num_units_per_layer) == self.num_layers - 1,\
             "Number of created layers is different than actual layers"
         assert len(self.dropout_per_layer) == self.num_layers - 1,\
             "Number of created layers is different than actual layers"
 
-        self.num_output_units = 1  # Regression, actually no true
+        self.num_output_units = 1  # Regression
+        if len(y.shape) == 1:
+            y = y[:, np.newaxis]
+
         self.m_issparse = sp.issparse(X)
 
         return X, y
@@ -83,7 +84,6 @@ class RegDeepNet(AutoSklearnRegressionAlgorithm):
         Xf, yf = self._prefit(X, y)
 
         epoch = (self.number_updates * self.batch_size)//X.shape[0]
-        # number_epochs = max(2, epoch)
         number_epochs = min(max(2, epoch), 50)  # Cap the max number of possible epochs
 
         from implementation import FeedForwardNet
@@ -136,9 +136,9 @@ class RegDeepNet(AutoSklearnRegressionAlgorithm):
     def get_properties(dataset_properties=None):
         return {'shortname': 'feed_nn',
                 'name': 'Feed Forward Neural Network',
-                'handles_regression': False,
-                'handles_classification': True,
-                'handles_multiclass': True,
+                'handles_regression': True,
+                'handles_classification': False,
+                'handles_multiclass': False,
                 'handles_multilabel': False,
                 'is_deterministic': True,
                 'input': (DENSE, SPARSE, UNSIGNED_DATA),
@@ -158,56 +158,46 @@ class RegDeepNet(AutoSklearnRegressionAlgorithm):
         multiclass_activations = ['relu', 'leaky', 'very_leaky', 'elu',
                                   'softplus', 'softmax', 'linear', 'scaledTanh']
 
-        # Hacky way to condition layers params based on the number of layers
-        # 'c'=2, 'd'=3, 'e'=4 ,'f'=5, 'g'=6, 'h'=7
-        layer_choices = [chr(i) for i in xrange(ord('c'), ord('i'))]
+        # GPUTRACK: Based on http://svail.github.io/rnn_perf/
+        # We make batch size and number of units multiples of 64
 
-        batch_size = UniformIntegerHyperparameter("batch_size", 100, 1000,
-                                                  log=True,
-                                                  default=100)
+        batch_size_choices = [32, 64, 128, 192, 256, 512, 1024]
+        num_units_choices = [256, 512, 1024, 2048, 4096]
+
+        # Hacky way to condition layers params based on the number of layers
+        # GPUTRACK: Reduced number of layers
+        # 'c'=1, 'd'=2, 'e'=3 ,'f'=4 + output_layer
+        layer_choices = [chr(i) for i in xrange(ord('c'), ord('g'))]
+
+        batch_size = CategoricalHyperparameter("batch_size",
+                                               choices=batch_size_choices,
+                                               default=128)
 
         number_updates = UniformIntegerHyperparameter("number_updates",
-                                                      50, 2500,
+                                                      200, 2500,
                                                       log=True,
-                                                      default=150)
-
-        # number_epochs = UniformIntegerHyperparameter("number_epochs", 2, 20,
-        #                                             default=3)
+                                                      default=200)
 
         num_layers = CategoricalHyperparameter("num_layers",
                                                choices=layer_choices,
                                                default='e')
 
-        # <editor-fold desc="Number of units in layers 1-6">
-        num_units_layer_1 = UniformIntegerHyperparameter("num_units_layer_1",
-                                                         10, 6144,
-                                                         log=True,
-                                                         default=10)
+        # <editor-fold desc="Number of units in layers 1-4">
+        num_units_layer_1 = CategoricalHyperparameter("num_units_layer_1",
+                                                      choices=num_units_choices,
+                                                      default=256)
 
-        num_units_layer_2 = UniformIntegerHyperparameter("num_units_layer_2",
-                                                         10, 6144,
-                                                         log=True,
-                                                         default=10)
+        num_units_layer_2 = CategoricalHyperparameter("num_units_layer_2",
+                                                      choices=num_units_choices,
+                                                      default=256)
 
-        num_units_layer_3 = UniformIntegerHyperparameter("num_units_layer_3",
-                                                         10, 6144,
-                                                         log=True,
-                                                         default=10)
+        num_units_layer_3 = CategoricalHyperparameter("num_units_layer_3",
+                                                      choices=num_units_choices,
+                                                      default=256)
 
-        num_units_layer_4 = UniformIntegerHyperparameter("num_units_layer_4",
-                                                         10, 6144,
-                                                         log=True,
-                                                         default=10)
-
-        num_units_layer_5 = UniformIntegerHyperparameter("num_units_layer_5",
-                                                         10, 6144,
-                                                         log=True,
-                                                         default=10)
-
-        num_units_layer_6 = UniformIntegerHyperparameter("num_units_layer_6",
-                                                         10, 6144,
-                                                         log=True,
-                                                         default=10)
+        num_units_layer_4 = CategoricalHyperparameter("num_units_layer_4",
+                                                      choices=num_units_choices,
+                                                      default=256)
         # </editor-fold>
 
         # <editor-fold desc="Dropout in layers 1-6">
@@ -227,13 +217,6 @@ class RegDeepNet(AutoSklearnRegressionAlgorithm):
                                                      0.0, 0.99,
                                                      default=0.5)
 
-        dropout_layer_5 = UniformFloatHyperparameter("dropout_layer_5",
-                                                     0.0, 0.99,
-                                                     default=0.5)
-
-        dropout_layer_6 = UniformFloatHyperparameter("dropout_layer_6",
-                                                     0.0, 0.99,
-                                                     default=0.5)
         # </editor-fold>
 
         dropout_output = UniformFloatHyperparameter("dropout_output", 0.0, 0.99,
@@ -266,13 +249,6 @@ class RegDeepNet(AutoSklearnRegressionAlgorithm):
                                                  log=True,
                                                  default=0.005)
 
-        std_layer_5 = UniformFloatHyperparameter("std_layer_5", 1e-6, 0.1,
-                                                 log=True,
-                                                 default=0.005)
-
-        std_layer_6 = UniformFloatHyperparameter("std_layer_6", 1e-6, 0.1,
-                                                 log=True,
-                                                 default=0.005)
         # </editor-fold>
 
         solver = CategoricalHyperparameter(name="solver",
@@ -303,16 +279,10 @@ class RegDeepNet(AutoSklearnRegressionAlgorithm):
                                                   2, 10,
                                                   default=2)
 
-        if (dataset_properties is not None and
-                dataset_properties.get('multiclass') is False):
 
-            non_linearities = CategoricalHyperparameter(name='activation',
-                                                        choices=binary_activations,
-                                                        default='sigmoid')
-        else:
-            non_linearities = CategoricalHyperparameter(name='activation',
-                                                        choices=multiclass_activations,
-                                                        default='relu')
+        non_linearities = CategoricalHyperparameter(name='activation',
+                                                    choices=multiclass_activations,
+                                                    default='linear')
 
         cs = ConfigurationSpace()
         # cs.add_hyperparameter(number_epochs)
@@ -323,21 +293,15 @@ class RegDeepNet(AutoSklearnRegressionAlgorithm):
         cs.add_hyperparameter(num_units_layer_2)
         cs.add_hyperparameter(num_units_layer_3)
         cs.add_hyperparameter(num_units_layer_4)
-        cs.add_hyperparameter(num_units_layer_5)
-        cs.add_hyperparameter(num_units_layer_6)
         cs.add_hyperparameter(dropout_layer_1)
         cs.add_hyperparameter(dropout_layer_2)
         cs.add_hyperparameter(dropout_layer_3)
         cs.add_hyperparameter(dropout_layer_4)
-        cs.add_hyperparameter(dropout_layer_5)
-        cs.add_hyperparameter(dropout_layer_6)
         cs.add_hyperparameter(dropout_output)
         cs.add_hyperparameter(std_layer_1)
         cs.add_hyperparameter(std_layer_2)
         cs.add_hyperparameter(std_layer_3)
         cs.add_hyperparameter(std_layer_4)
-        cs.add_hyperparameter(std_layer_5)
-        cs.add_hyperparameter(std_layer_6)
         cs.add_hyperparameter(lr)
         cs.add_hyperparameter(l2)
         cs.add_hyperparameter(solver)
@@ -353,40 +317,28 @@ class RegDeepNet(AutoSklearnRegressionAlgorithm):
 
         # TODO: Put this conditioning in a for-loop
         # Condition layers parameter on layer choice
-        layer_2_condition = InCondition(num_units_layer_2, num_layers, ['d', 'e', 'f', 'g', 'h'])
-        layer_3_condition = InCondition(num_units_layer_3, num_layers, ['e', 'f', 'g', 'h'])
-        layer_4_condition = InCondition(num_units_layer_4, num_layers, ['f', 'g', 'h'])
-        layer_5_condition = InCondition(num_units_layer_5, num_layers, ['g', 'h'])
-        layer_6_condition = InCondition(num_units_layer_6, num_layers, ['h'])
+        layer_2_condition = InCondition(num_units_layer_2, num_layers, ['d', 'e', 'f'])
+        layer_3_condition = InCondition(num_units_layer_3, num_layers, ['e', 'f'])
+        layer_4_condition = InCondition(num_units_layer_4, num_layers, ['f'])
         cs.add_condition(layer_2_condition)
         cs.add_condition(layer_3_condition)
         cs.add_condition(layer_4_condition)
-        cs.add_condition(layer_5_condition)
-        cs.add_condition(layer_6_condition)
 
         # Condition dropout parameter on layer choice
-        dropout_2_condition = InCondition(dropout_layer_2, num_layers, ['d', 'e', 'f', 'g', 'h'])
-        dropout_3_condition = InCondition(dropout_layer_3, num_layers, ['e', 'f', 'g', 'h'])
-        dropout_4_condition = InCondition(dropout_layer_4, num_layers, ['f', 'g', 'h'])
-        dropout_5_condition = InCondition(dropout_layer_5, num_layers, ['g', 'h'])
-        dropout_6_condition = InCondition(dropout_layer_6, num_layers, ['h'])
+        dropout_2_condition = InCondition(dropout_layer_2, num_layers, ['d', 'e', 'f'])
+        dropout_3_condition = InCondition(dropout_layer_3, num_layers, ['e', 'f'])
+        dropout_4_condition = InCondition(dropout_layer_4, num_layers, ['f'])
         cs.add_condition(dropout_2_condition)
         cs.add_condition(dropout_3_condition)
         cs.add_condition(dropout_4_condition)
-        cs.add_condition(dropout_5_condition)
-        cs.add_condition(dropout_6_condition)
 
         # Condition std parameter on layer choice
-        std_2_condition = InCondition(std_layer_2, num_layers, ['d', 'e', 'f', 'g', 'h'])
-        std_3_condition = InCondition(std_layer_3, num_layers, ['e', 'f', 'g', 'h'])
-        std_4_condition = InCondition(std_layer_4, num_layers, ['f', 'g', 'h'])
-        std_5_condition = InCondition(std_layer_5, num_layers, ['g', 'h'])
-        std_6_condition = InCondition(std_layer_6, num_layers, ['h'])
+        std_2_condition = InCondition(std_layer_2, num_layers, ['d', 'e', 'f'])
+        std_3_condition = InCondition(std_layer_3, num_layers, ['e', 'f'])
+        std_4_condition = InCondition(std_layer_4, num_layers, ['f'])
         cs.add_condition(std_2_condition)
         cs.add_condition(std_3_condition)
         cs.add_condition(std_4_condition)
-        cs.add_condition(std_5_condition)
-        cs.add_condition(std_6_condition)
 
         momentum_depends_on_solver = InCondition(momentum, solver,
                                                  values=["sgd", "momentum", "nesterov"])
