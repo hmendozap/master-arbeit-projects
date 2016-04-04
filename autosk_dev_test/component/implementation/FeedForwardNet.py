@@ -72,7 +72,7 @@ class FeedForwardNet(object):
         else:
             input_var = T.matrix('inputs')
 
-        if self.is_binary:
+        if self.is_binary or self.is_regression:
             target_var = T.lmatrix('targets')
         else:
             target_var = T.lvector('targets')
@@ -93,10 +93,10 @@ class FeedForwardNet(object):
         # Choose hidden activation function
         if self.is_binary:
             activation_function = self.binary_activation.get(self.activation,
-                                                             lasagne.nonlinearities.rectify)
+                                                             lasagne.nonlinearities.sigmoid)
         else:
             activation_function = self.multiclass_activation.get(self.activation,
-                                                                 lasagne.nonlinearities.sigmoid)
+                                                                 lasagne.nonlinearities.rectify)
 
         # Define each layer
         for i in range(num_layers - 1):
@@ -109,7 +109,9 @@ class FeedForwardNet(object):
                  nonlinearity=activation_function)
 
         # Define output layer and nonlinearity of last layer
-        if self.is_binary:
+        if self.is_regression:
+            output_activation = lasagne.nonlinearities.linear
+        elif self.is_binary:
             output_activation = lasagne.nonlinearities.sigmoid
         else:
             output_activation = lasagne.nonlinearities.softmax
@@ -134,7 +136,10 @@ class FeedForwardNet(object):
         loss = loss_function(prediction, target_var)
 
         # Aggregate loss mean function with l2 Regularization on all layers' params
-        loss = loss.mean()
+        if self.is_regression or self.is_binary:
+            loss = lasagne.objectives.aggregate(loss, mode='sum')
+        else:
+            loss = loss.mean()
         l2_penalty = self.lambda2 * lasagne.regularization.regularize_network_params(
             self.network, lasagne.regularization.l2)
         loss += l2_penalty
@@ -177,7 +182,7 @@ class FeedForwardNet(object):
                                         loss,
                                         updates=updates,
                                         allow_input_downcast=True,
-                                        profile=True,
+                                        profile=False,
                                         on_unused_input='warn')
         self.update_function = self._policy_function()
 
