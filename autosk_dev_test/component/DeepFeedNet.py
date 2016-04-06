@@ -46,6 +46,7 @@ class DeepFeedNet(AutoSklearnClassificationAlgorithm):
         self.input_shape = None
         self.m_issparse = False
         self.m_isbinary = False
+        self.m_ismultilabel = False
 
         # To avoid eval call. Could be done with **karws
         args = locals()
@@ -70,14 +71,12 @@ class DeepFeedNet(AutoSklearnClassificationAlgorithm):
             "Number of created layers is different than actual layers"
 
         # TODO: Better if statement
-        # Multilabel
-        if len(y.shape) == 2 and y.shape[1] > 1:
-            self.m_isbinary = True
+        if len(y.shape) == 2 and y.shape[1] > 1:  # Multilabel
+            self.m_ismultilabel = True
             self.num_output_units = y.shape[1]
         else:
             number_classes = len(np.unique(y.astype(int)))
-            # Make it binary
-            if number_classes == 2:
+            if number_classes == 2:  # Make it binary
                 self.m_isbinary = True
                 self.num_output_units = 1
                 if len(y.shape) == 1:
@@ -119,7 +118,8 @@ class DeepFeedNet(AutoSklearnClassificationAlgorithm):
                                                        power=self.power,
                                                        epoch_step=self.epoch_step,
                                                        is_sparse=self.m_issparse,
-                                                       is_binary=self.m_isbinary)
+                                                       is_binary=self.m_isbinary,
+                                                       is_multilabel=self.m_ismultilabel)
         self.estimator.fit(Xf, yf)
         return self
 

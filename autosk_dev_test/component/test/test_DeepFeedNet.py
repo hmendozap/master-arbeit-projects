@@ -11,7 +11,7 @@ import theano.sparse as S
 
 
 class NetComponentTest(unittest.TestCase):
-    dataset_dir =
+    dataset_dir = 
 
     X_train = np.load(dataset_dir + 'train.npy')
     y_train = np.load(dataset_dir + 'train_labels.npy')
@@ -96,8 +96,10 @@ class NetComponentTest(unittest.TestCase):
         for i in range(10):
             predictions, targets = _test_classifier(DeepFeedNet,
                                                     make_multilabel=True)
-            print(sklearn.metrics.
-                  average_precision_score(targets, predictions))
+            self.assertEqual(predictions.shape, ((50, 3)))
+            ave_precision_score = sklearn.metrics.average_precision_score(targets, predictions)
+            print(ave_precision_score)
+            self.assertAlmostEqual(2./3., ave_precision_score)
 
     def test_constrained_individual_configspace(self):
         # TODO: Test for fixed cs

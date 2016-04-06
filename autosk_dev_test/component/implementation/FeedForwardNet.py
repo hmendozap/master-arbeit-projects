@@ -36,7 +36,7 @@ class FeedForwardNet(object):
                  lambda2=1e-4, momentum=0.9, beta1=0.9, beta2=0.9,
                  rho=0.95, solver="sgd", num_epochs=2, activation='relu',
                  lr_policy="fixed", gamma=0.01, power=1.0, epoch_step=1,
-                 is_sparse=False, is_binary=False, is_regression=False):
+                 is_sparse=False, is_binary=False, is_regression=False, is_multilabel=False):
 
         self.batch_size = batch_size
         self.input_shape = input_shape
@@ -64,6 +64,7 @@ class FeedForwardNet(object):
         self.epoch_step = epoch_step
         self.is_binary = is_binary
         self.is_regression = is_regression
+        self.is_multilabel = is_multilabel
         self.solver = solver
         self.activation = activation
 
@@ -72,7 +73,7 @@ class FeedForwardNet(object):
         else:
             input_var = T.matrix('inputs')
 
-        if self.is_binary or self.is_regression:
+        if self.is_binary or self.is_multilabel or self.is_regression:
             target_var = T.lmatrix('targets')
         else:
             target_var = T.lvector('targets')
@@ -80,6 +81,8 @@ class FeedForwardNet(object):
         if DEBUG:
             if self.is_binary:
                 print("... using binary loss")
+            if self.is_multilabel:
+                print("... using multilabel prediction")
             if self.is_regression:
                 print("... using regression loss")
             print("... building network")
@@ -91,7 +94,7 @@ class FeedForwardNet(object):
                                                  input_var=input_var)
 
         # Choose hidden activation function
-        if self.is_binary:
+        if self.is_binary or self.is_multilabel:
             activation_function = self.binary_activation.get(self.activation,
                                                              lasagne.nonlinearities.sigmoid)
         else:
@@ -111,7 +114,7 @@ class FeedForwardNet(object):
         # Define output layer and nonlinearity of last layer
         if self.is_regression:
             output_activation = lasagne.nonlinearities.linear
-        elif self.is_binary:
+        elif self.is_binary or self.is_multilabel:
             output_activation = lasagne.nonlinearities.sigmoid
         else:
             output_activation = lasagne.nonlinearities.softmax
@@ -128,7 +131,7 @@ class FeedForwardNet(object):
 
         if self.is_regression:
             loss_function = lasagne.objectives.squared_error
-        elif self.is_binary:
+        elif self.is_binary or self.is_multilabel:
             loss_function = lasagne.objectives.binary_hinge_loss
         else:
             loss_function = lasagne.objectives.categorical_crossentropy
@@ -220,7 +223,10 @@ class FeedForwardNet(object):
 
     def predict(self, X, is_sparse=False):
         predictions = self.predict_proba(X, is_sparse)
-        return np.argmax(predictions, axis=1)
+        if self.is_multilabel:
+            return np.round(predictions)
+        else:
+            return np.argmax(predictions, axis=1)
 
     def predict_proba(self, X, is_sparse=False):
         # TODO: Add try-except statements
