@@ -43,6 +43,19 @@ class NetComponentTest(unittest.TestCase):
             # self.assertAlmostEqual(sklearn.metrics.log_loss(y_test, prediction),
             #                       0.68661222917147913)
 
+    def test_default_configuration_binary(self):
+        """
+        Test of default config feed net in
+        a binary classification problem
+        """
+
+        # Don't know if should be external loading
+        for i in range(10):
+            predictions, targets = _test_classifier(DeepFeedNet,
+                                                    make_binary=True)
+            self.assertTrue(all(targets == predictions))
+
+
     def test_default_sparse_configuration(self):
 
         dataset_name = '../../data/covtype.test'
@@ -79,6 +92,13 @@ class NetComponentTest(unittest.TestCase):
             kls.fit(self.X_train, self.y_train)
             prediction = kls.predict(self.X_test)
             print sklearn.metrics.log_loss(self.y_test, prediction)
+
+    def test_default_configuration_multilabel(self):
+        for i in range(10):
+            predictions, targets = _test_classifier(DeepFeedNet,
+                                                    make_multilabel=True)
+            print(sklearn.metrics.
+                  average_precision_score(targets, predictions))
 
     def test_constrained_individual_configspace(self):
         # TODO: Test for fixed cs
