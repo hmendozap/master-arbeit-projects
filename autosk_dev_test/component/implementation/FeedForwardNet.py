@@ -204,6 +204,7 @@ class FeedForwardNet(object):
 
         return theano.function([gm, epoch, powr, step],
                                decay,
+                               allow_input_downcast=True,
                                on_unused_input='ignore')
 
     def fit(self, X, y):
