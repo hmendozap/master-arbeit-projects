@@ -5,7 +5,7 @@ import scipy.sparse as sp
 from ConfigSpace.configuration_space import ConfigurationSpace
 from ConfigSpace.conditions import EqualsCondition, InCondition
 from ConfigSpace.hyperparameters import UniformFloatHyperparameter, \
-    UniformIntegerHyperparameter, CategoricalHyperparameter
+    UniformIntegerHyperparameter, CategoricalHyperparameter, Constant
 
 from autosklearn.pipeline.components.base import AutoSklearnRegressionAlgorithm
 from autosklearn.pipeline.constants import *
@@ -171,12 +171,12 @@ class RegDeepNet(AutoSklearnRegressionAlgorithm):
 
         batch_size = CategoricalHyperparameter("batch_size",
                                                choices=batch_size_choices,
-                                               default=128)
+                                               default=512)
 
         number_updates = UniformIntegerHyperparameter("number_updates",
                                                       200, 2500,
                                                       log=True,
-                                                      default=200)
+                                                      default=250)
 
         num_layers = CategoricalHyperparameter("num_layers",
                                                choices=layer_choices,
@@ -225,7 +225,6 @@ class RegDeepNet(AutoSklearnRegressionAlgorithm):
         lr = UniformFloatHyperparameter("learning_rate", 1e-6, 1, log=True,
                                         default=0.01)
 
-        # Todo: Check lambda2 parameter bounds
         l2 = UniformFloatHyperparameter("lambda2", 1e-6, 1e-2, log=True,
                                         default=1e-3)
 
