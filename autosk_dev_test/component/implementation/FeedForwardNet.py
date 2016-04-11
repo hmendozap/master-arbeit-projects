@@ -74,9 +74,9 @@ class FeedForwardNet(object):
             input_var = T.matrix('inputs')
 
         if self.is_binary or self.is_multilabel or self.is_regression:
-            target_var = T.lmatrix('targets')
+            target_var = T.matrix('targets')
         else:
-            target_var = T.lvector('targets')
+            target_var = T.vector('targets')
 
         if DEBUG:
             if self.is_binary:
@@ -226,6 +226,8 @@ class FeedForwardNet(object):
         predictions = self.predict_proba(X, is_sparse)
         if self.is_multilabel:
             return np.round(predictions)
+        elif self.is_regression:
+            return predictions
         else:
             return np.argmax(predictions, axis=1)
 
