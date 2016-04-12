@@ -33,6 +33,22 @@ class TestFeedForwardNet(unittest.TestCase):
         self.assertTrue((predicted_labels == expected_labels).all(), msg="Failed predicted probability")
         self.assertTrue((1 - predicted_probability_matrix.sum(axis=1) < 1e-3).all())
 
+    def test_helena_deep_implementation(self):
+        """
+        Test of regression implementation for feed forward networks
+        """
+        X_train = np.loadtxt('/mhome/mendozah/datasets/helena_data/hele_data.txt')
+        y_train = np.loadtxt('/mhome/mendozah/datasets/helena_data/hele_sol.txt')
+        y_train = np.argmax(y_train, axis=1)
+        model = FeedForwardNet(input_shape=(100, 27), batch_size=100, activation='scaledTanh',
+                               lambda2=0.0005, num_layers=4, num_units_per_layer=(2048, 1024, 2048, 2048),
+                               dropout_per_layer=(0.9624, 0.1209, 0.5559, 0.9359), dropout_output=0.79399,
+                               learning_rate=5.6e-7, num_output_units=100, solver='nesterov', momentum=0.710625,
+                               num_epochs=10)
+        model.fit(X_train, y_train)
+
+        print("Model fitted")
+
     def test_regression_deep_implementation(self):
         """
         Test of regression implementation for feed forward networks
@@ -40,10 +56,18 @@ class TestFeedForwardNet(unittest.TestCase):
         X_train = np.loadtxt('/home/mendozah/workspace/datasets/yolanda_set/yolo_data.txt')
         y_train = np.loadtxt('/home/mendozah/workspace/datasets/yolanda_set/yolo_sol.txt')
         y_train = y_train[:, np.newaxis]
-        model = FeedForwardNet(input_shape=(2, 100), batch_size=2,
-                               learning_rate=0.0001, num_output_units=1,
-                               num_epochs=5, is_regression=True)
+        model = FeedForwardNet(input_shape=(100, 100), batch_size=100, activation='scaledTanh',
+                               lambda2=0.0005, num_layers=4, num_units_per_layer=(2048, 1024, 2048, 2048),
+                               dropout_per_layer=(0.9624, 0.1209, 0.5559, 0.9359), dropout_output=0.79399,
+                               learning_rate=5.6e-7, num_output_units=1, solver='nesterov', momentum=0.710625,
+                               num_epochs=200, is_regression=True)
         model.fit(X_train, y_train)
+        X_test = np.loadtxt('/home/mendozah/workspace/datasets/yolanda_set/test_data.txt')
+        y_test = np.loadtxt('/home/mendozah/workspace/datasets/yolanda_set/test_sol.txt')
+        y_test = y_test[:, np.newaxis]
+        prediction = model.predict(X_test)
+        import sklearn.metrics
+        print(sklearn.metrics.r2_score(y_true=y_test, y_pred=prediction))
         print("Model fitted")
 
     def test_multilabel_feed_implementation(self):

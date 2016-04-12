@@ -21,7 +21,7 @@ class NetComponentTest(unittest.TestCase):
     def test_default_configuration(self):
         for i in range(10):
             predictions, targets = _test_classifier(DeepFeedNet, dataset='iris')
-            print sklearn.metrics.accuracy_score(predictions, targets)
+            print sklearn.metrics.accuracy_score(y_pred=predictions, y_true=targets)
             # self.assertAlmostEqual(0.96,
             #                       sklearn.metrics.accuracy_score(predictions, targets))
 
