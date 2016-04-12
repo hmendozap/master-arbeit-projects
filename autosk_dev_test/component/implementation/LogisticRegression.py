@@ -38,22 +38,22 @@ class LogisticRegression(object):
         self.batch_size = batch_size
         self.input_shape = input_shape
         self.num_output_units = num_output_units
-        self.dropout_output = dropout_output
-        self.momentum = momentum
-        self.learning_rate = learning_rate
-        self.lambda2 = lambda2
-        self.beta1 = beta1
-        self.beta2 = beta2
-        self.rho = rho
+        self.dropout_output = T.cast(dropout_output, dtype=theano.config.floatX)
+        self.momentum = T.cast(momentum, dtype=theano.config.floatX)
+        self.learning_rate = np.asarray(learning_rate, dtype=theano.config.floatX)
+        self.lambda2 = T.cast(lambda2, dtype=theano.config.floatX)
+        self.beta1 = T.cast(beta1, dtype=theano.config.floatX)
+        self.beta2 = T.cast(beta2, dtype=theano.config.floatX)
+        self.rho = T.cast(rho, dtype=theano.config.floatX)
         self.num_epochs = num_epochs
         self.lr_policy = lr_policy
-        self.gamma = gamma
+        self.gamma = np.asarray(gamma, dtype=theano.config.floatX)
         if power > 1.0:
             print('hyperparameter must be between 0 and 1')
-            self.power = 1.0
+            self.power = np.asarray(1.0, dtype=theano.config.floatX)
         else:
-            self.power = power
-        self.epoch_step = epoch_step
+            self.power = np.asarray(power, dtype=theano.config.floatX)
+        self.epoch_step = np.asarray(epoch_step, dtype=theano.config.floatX)
         self.is_binary = is_binary
         self.is_regression = is_regression
         self.is_multilabel = is_multilabel
@@ -68,7 +68,7 @@ class LogisticRegression(object):
         if self.is_binary or self.is_multilabel or self.is_regression:
             target_var = T.matrix('targets')
         else:
-            target_var = T.lvector('targets')
+            target_var = T.ivector('targets')
 
         if DEBUG:
             if self.is_binary:
@@ -115,7 +115,7 @@ class LogisticRegression(object):
         if self.is_regression or self.is_binary:
             loss = lasagne.objectives.aggregate(loss, mode='sum')
         else:
-            loss = loss.mean()
+            loss = loss.mean(dtype=theano.config.floatX)
         l2_penalty = self.lambda2 * lasagne.regularization.regularize_network_params(
             self.network, lasagne.regularization.l2)
         loss += l2_penalty
@@ -181,6 +181,8 @@ class LogisticRegression(object):
     def fit(self, X, y):
         # TODO: If batch size is bigger than available points
         # training is not executed.
+        X = np.asarray(X, dtype=theano.config.floatX)
+        y = np.asarray(y, dtype=theano.config.floatX)
         for epoch in range(self.num_epochs):
             train_err = 0
             train_batches = 0
