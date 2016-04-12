@@ -71,7 +71,7 @@ class LogReg(AutoSklearnClassificationAlgorithm):
         Xf, yf = self._prefit(X, y)
 
         epoch = (self.number_updates * self.batch_size)//X.shape[0]
-        number_epochs = min(max(2, epoch), 50)  # Cap the max number of possible epochs
+        number_epochs = min(max(2, epoch), 110)  # Cap the max number of possible epochs
 
         from implementation import LogisticRegression
         self.estimator = LogisticRegression.LogisticRegression(batch_size=self.batch_size,
@@ -141,9 +141,9 @@ class LogReg(AutoSklearnClassificationAlgorithm):
                                   'softplus', 'softmax', 'linear', 'scaledTanh']
 
         batch_size = UniformIntegerHyperparameter("batch_size",
-                                                  10, 1000,
+                                                  100, 5000,
                                                   log=True,
-                                                  default=10)
+                                                  default=100)
 
         number_updates = UniformIntegerHyperparameter("number_updates",
                                                       200, 2500,
@@ -194,7 +194,7 @@ class LogReg(AutoSklearnClassificationAlgorithm):
 
         non_linearities = CategoricalHyperparameter(name='activation',
                                                     choices=multiclass_activations,
-                                                    default='linear')
+                                                    default='softmax')
 
         cs = ConfigurationSpace()
         # cs.add_hyperparameter(number_epochs)

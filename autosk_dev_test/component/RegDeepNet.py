@@ -278,7 +278,6 @@ class RegDeepNet(AutoSklearnRegressionAlgorithm):
                                                   2, 10,
                                                   default=2)
 
-
         non_linearities = CategoricalHyperparameter(name='activation',
                                                     choices=multiclass_activations,
                                                     default='linear')
