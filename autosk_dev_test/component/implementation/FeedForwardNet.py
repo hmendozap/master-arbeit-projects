@@ -192,11 +192,11 @@ class FeedForwardNet(object):
     def _policy_function(self):
         epoch, gm, powr, step = T.scalars('epoch', 'gm', 'powr', 'step')
         if self.lr_policy == 'inv':
-            decay = T.power(1+gm*epoch, -powr)
+            decay = T.power(1.0+gm*epoch, -powr)
         elif self.lr_policy == 'exp':
             decay = gm ** epoch
         elif self.lr_policy == 'step':
-            decay = T.switch(T.eq(T.mod_check(epoch, step), 0),
+            decay = T.switch(T.eq(T.mod_check(epoch, step), 0.0),
                              T.power(gm, T.floor_div(epoch, step)),
                              1.0)
         elif self.lr_policy == 'fixed':
@@ -210,15 +210,16 @@ class FeedForwardNet(object):
     def fit(self, X, y):
         # TODO: If batch size is bigger than available points
         # training is not executed.
-        X = np.asarray(X, dtype=theano.config.floatX)
-        y = np.asarray(y, dtype=theano.config.floatX)
+        if not self.is_binary and not self.is_multilabel:
+            X = np.asarray(X, dtype=theano.config.floatX)
+            y = np.asarray(y, dtype=theano.config.floatX)
         for epoch in range(self.num_epochs):
             train_err = 0
             train_batches = 0
             for inputs, targets in iterate_minibatches(X, y, self.batch_size, shuffle=True):
                 train_err += self.train_fn(inputs, targets, self.learning_rate)
                 train_batches += 1
-            decay = self.update_function(self.gamma, epoch+1,
+            decay = self.update_function(self.gamma, epoch+1.0,
                                          self.power, self.epoch_step)
             self.learning_rate *= decay
             print("  training loss:\t\t{:.6f}".format(train_err / train_batches))
@@ -239,7 +240,7 @@ class FeedForwardNet(object):
             X = S.basic.as_sparse_or_tensor_variable(X)
         predictions = lasagne.layers.get_output(self.network, X, deterministic=True).eval()
         if self.is_binary:
-            return np.append(1 - predictions, predictions, axis=1)
+            return np.append(1.0 - predictions, predictions, axis=1)
         else:
             return predictions
 
