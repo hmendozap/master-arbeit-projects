@@ -134,12 +134,6 @@ class LogReg(AutoSklearnClassificationAlgorithm):
 
         policy_choices = ['fixed', 'inv', 'exp', 'step']
 
-        binary_activations = ['sigmoid', 'tanh', 'scaledTanh', 'softplus',
-                              'elu', 'relu']
-
-        multiclass_activations = ['relu', 'leaky', 'very_leaky', 'elu',
-                                  'softplus', 'softmax', 'linear', 'scaledTanh']
-
         batch_size = UniformIntegerHyperparameter("batch_size",
                                                   100, 5000,
                                                   log=True,
@@ -192,9 +186,11 @@ class LogReg(AutoSklearnClassificationAlgorithm):
                                                   2, 10,
                                                   default=2)
 
-        non_linearities = CategoricalHyperparameter(name='activation',
-                                                    choices=multiclass_activations,
-                                                    default='softmax')
+        if (dataset_properties is not None and
+                dataset_properties.get('multiclass') is False):
+            non_linearities = Constant(name='activation', value='tanh')
+        else:
+            non_linearities = Constant(name='activation', value='softmax')
 
         cs = ConfigurationSpace()
         # cs.add_hyperparameter(number_epochs)
