@@ -18,8 +18,8 @@ reproducible_ensemble = args.reproducible_ensemble
 
 ensemble_size = 5
 #total_runtime = 172800  # two days
-total_runtime = 1800
-time_per_run = 300
+total_runtime = 4832
+time_per_run = 635
 #time_per_run = 3175  # 635 for each run * 5 cv
 
 # Create model
@@ -35,7 +35,7 @@ modl = autosk.AutoML(time_left_for_this_task=total_runtime,
                      initial_configurations_via_metalearning=0,
                      seed=seed,
                      shared_mode=True,
-                     ml_memory_limit=8192,
+                     ml_memory_limit=1000000000,  # max memory?
                      metadata_directory=None,
                      keep_models=True,
                      debug_mode=False,
