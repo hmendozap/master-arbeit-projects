@@ -277,6 +277,8 @@ class RegDeepNet(AutoSklearnRegressionAlgorithm):
         cs.add_hyperparameter(solver)
         cs.add_hyperparameter(beta1)
         cs.add_hyperparameter(beta2)
+        cs.add_hyperparameter(momentum)
+        cs.add_hyperparameter(rho)
         cs.add_hyperparameter(lr_policy)
         cs.add_hyperparameter(gamma)
         cs.add_hyperparameter(power)
