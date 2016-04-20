@@ -144,8 +144,13 @@ class LinReg(AutoSklearnRegressionAlgorithm):
 
         solver = Constant(name="solver", value="adam")
 
-        beta1 = Constant(name="beta1", value=0.1)
-        beta2 = Constant(name="beta2", value=0.01)
+        beta1 = UniformFloatHyperparameter("beta1", 1e-4, 0.1,
+                                           log=True,
+                                           default=0.1)
+
+        beta2 = UniformFloatHyperparameter("beta2", 1e-4, 0.1,
+                                           log=True,
+                                           default=0.01)
 
         lr_policy = CategoricalHyperparameter(name="lr_policy",
                                               choices=policy_choices,

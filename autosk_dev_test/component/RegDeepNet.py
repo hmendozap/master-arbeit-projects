@@ -155,7 +155,7 @@ class RegDeepNet(AutoSklearnRegressionAlgorithm):
         # 'c'=1, 'd'=2, 'e'=3 ,'f'=4 + output_layer
         # layer_choices = [chr(i) for i in xrange(ord('c'), ord('e'))]
 
-        layer_choices = ["c", "d"]
+        layer_choices = ['c', 'd', 'e']
 
         batch_size = UniformIntegerHyperparameter("batch_size",
                                                   64, 2048,
@@ -177,12 +177,20 @@ class RegDeepNet(AutoSklearnRegressionAlgorithm):
         num_units_layer_2 = UniformIntegerHyperparameter("num_units_layer_2",
                                                          64, 4096,
                                                          default=128)
+        num_units_layer_3 = UniformIntegerHyperparameter("num_units_layer_3",
+                                                         64, 4096,
+                                                         log=True,
+                                                         default=128)
 
         dropout_layer_1 = UniformFloatHyperparameter("dropout_layer_1",
                                                      0.0, 0.99,
                                                      default=0.5)
 
         dropout_layer_2 = UniformFloatHyperparameter("dropout_layer_2",
+                                                     0.0, 0.99,
+                                                     default=0.5)
+
+        dropout_layer_3 = UniformFloatHyperparameter("dropout_layer_3",
                                                      0.0, 0.99,
                                                      default=0.5)
 
@@ -197,18 +205,37 @@ class RegDeepNet(AutoSklearnRegressionAlgorithm):
         l2 = UniformFloatHyperparameter("lambda2", 1e-6, 1e-2, log=True,
                                         default=1e-3)
 
-        std_layer_1 = UniformFloatHyperparameter("std_layer_1", 1e-6, 0.1,
+        std_layer_1 = UniformFloatHyperparameter("std_layer_1", 0.001, 0.1,
                                                  log=True,
                                                  default=0.005)
 
-        std_layer_2 = UniformFloatHyperparameter("std_layer_2", 1e-6, 0.1,
+        std_layer_2 = UniformFloatHyperparameter("std_layer_2", 0.001, 0.1,
                                                  log=True,
                                                  default=0.005)
 
-        solver = Constant(name="solver", value="adam")
+        std_layer_3 = UniformFloatHyperparameter("std_layer_3", 0.001, 0.1,
+                                                 log=True,
+                                                 default=0.005)
 
-        beta1 = Constant(name="beta1", value=0.1)
-        beta2 = Constant(name="beta2", value=0.01)
+        solver_choices = ["adam", "adadelta", "adagrad", "sgd",
+                          "momentum", "nesterov"]
+
+        solver = CategoricalHyperparameter(name="solver",
+                                           choices=solver_choices,
+                                           default="adam")
+
+        beta1 = UniformFloatHyperparameter("beta1", 1e-4, 0.1,
+                                           log=True,
+                                           default=0.1)
+
+        beta2 = UniformFloatHyperparameter("beta2", 1e-4, 0.1,
+                                           log=True,
+                                           default=0.01)
+
+        rho = UniformFloatHyperparameter("rho", 0.0, 1.0, default=0.95)
+
+        momentum = UniformFloatHyperparameter("momentum", 0.3, 0.999,
+                                              default=0.9)
 
         lr_policy = CategoricalHyperparameter(name="lr_policy",
                                               choices=policy_choices,
@@ -223,11 +250,11 @@ class RegDeepNet(AutoSklearnRegressionAlgorithm):
                                            default=0.5)
 
         epoch_step = UniformIntegerHyperparameter("epoch_step",
-                                                  2, 10,
-                                                  default=2)
+                                                  2, 20,
+                                                  default=5)
 
         non_linearities = CategoricalHyperparameter(name='activation',
-                                                    choices=['relu', 'leaky', 'very_leaky'],
+                                                    choices=['relu', 'very_leaky'],
                                                     default='relu')
 
         cs = ConfigurationSpace()
@@ -237,11 +264,14 @@ class RegDeepNet(AutoSklearnRegressionAlgorithm):
         cs.add_hyperparameter(num_layers)
         cs.add_hyperparameter(num_units_layer_1)
         cs.add_hyperparameter(num_units_layer_2)
+        cs.add_hyperparameter(num_units_layer_3)
         cs.add_hyperparameter(dropout_layer_1)
         cs.add_hyperparameter(dropout_layer_2)
+        cs.add_hyperparameter(dropout_layer_3)
         cs.add_hyperparameter(dropout_output)
         cs.add_hyperparameter(std_layer_1)
         cs.add_hyperparameter(std_layer_2)
+        cs.add_hyperparameter(std_layer_3)
         cs.add_hyperparameter(lr)
         cs.add_hyperparameter(l2)
         cs.add_hyperparameter(solver)
@@ -254,24 +284,42 @@ class RegDeepNet(AutoSklearnRegressionAlgorithm):
         cs.add_hyperparameter(non_linearities)
 
         layer_2_condition = InCondition(num_units_layer_2, num_layers,
-                                        ['d'])
+                                        ['d', 'e'])
+        layer_3_condition = InCondition(num_units_layer_3, num_layers,
+                                        ['e'])
         cs.add_condition(layer_2_condition)
+        cs.add_condition(layer_3_condition)
 
         # Condition dropout parameter on layer choice
         dropout_2_condition = InCondition(dropout_layer_2, num_layers,
-                                          ['d'])
+                                          ['d', 'e'])
+        dropout_3_condition = InCondition(dropout_layer_3, num_layers,
+                                          ['e'])
         cs.add_condition(dropout_2_condition)
+        cs.add_condition(dropout_3_condition)
 
         # Condition std parameter on layer choice
-        std_2_condition = InCondition(std_layer_2, num_layers, ['d'])
+        std_2_condition = InCondition(std_layer_2, num_layers, ['d', 'e'])
+        std_3_condition = InCondition(std_layer_3, num_layers, ['e'])
         cs.add_condition(std_2_condition)
+        cs.add_condition(std_3_condition)
 
+        momentum_depends_on_solver = InCondition(momentum, solver,
+                                                 values=["sgd", "momentum", "nesterov"])
+
+        beta1_depends_on_solver = EqualsCondition(beta1, solver, "adam")
+        beta2_depends_on_solver = EqualsCondition(beta2, solver, "adam")
+        rho_depends_on_solver = EqualsCondition(rho, solver, "adadelta")
         gamma_depends_on_policy = InCondition(child=gamma, parent=lr_policy,
                                               values=['inv', 'exp', 'step'])
         power_depends_on_policy = EqualsCondition(power, lr_policy, 'inv')
         epoch_step_depends_on_policy = EqualsCondition(epoch_step,
                                                        lr_policy, 'step')
 
+        cs.add_condition(momentum_depends_on_solver)
+        cs.add_condition(beta1_depends_on_solver)
+        cs.add_condition(beta2_depends_on_solver)
+        cs.add_condition(rho_depends_on_solver)
         cs.add_condition(gamma_depends_on_policy)
         cs.add_condition(power_depends_on_policy)
         cs.add_condition(epoch_step_depends_on_policy)
