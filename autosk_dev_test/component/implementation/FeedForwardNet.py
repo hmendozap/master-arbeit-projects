@@ -1,6 +1,6 @@
 """
 Created on Jul 22, 2015
-Modified on Feb 1, 2016
+Modified on Apr 21, 2016
 
 @author: Aaron Klein
 @modified: Hector Mendoza
@@ -41,9 +41,9 @@ class FeedForwardNet(object):
         self.batch_size = batch_size
         self.input_shape = input_shape
         self.num_layers = num_layers
-        self.num_units_per_layer = np.int32(num_units_per_layer)
+        self.num_units_per_layer = num_units_per_layer
         self.dropout_per_layer = np.asarray(dropout_per_layer, dtype=theano.config.floatX)
-        self.num_output_units = np.int32(num_output_units)
+        self.num_output_units = num_output_units
         self.dropout_output = T.cast(dropout_output, dtype=theano.config.floatX)
         self.std_per_layer = np.asarray(std_per_layer, dtype=theano.config.floatX)
         self.momentum = T.cast(momentum, dtype=theano.config.floatX)
@@ -65,11 +65,12 @@ class FeedForwardNet(object):
         self.is_binary = is_binary
         self.is_regression = is_regression
         self.is_multilabel = is_multilabel
+        self.is_sparse = is_sparse
         self.solver = solver
         self.activation = activation
 
         if is_sparse:
-            input_var = S.csr_matrix('inputs', dtype='float32')
+            input_var = S.csr_matrix('inputs', dtype=theano.config.floatX)
         else:
             input_var = T.matrix('inputs')
 
@@ -96,7 +97,7 @@ class FeedForwardNet(object):
         # Choose hidden activation function
         if self.is_binary or self.is_multilabel:
             activation_function = self.binary_activation.get(self.activation,
-                                                             lasagne.nonlinearities.sigmoid)
+                                                             lasagne.nonlinearities.tanh)
         else:
             activation_function = self.multiclass_activation.get(self.activation,
                                                                  lasagne.nonlinearities.rectify)
@@ -107,7 +108,7 @@ class FeedForwardNet(object):
                  lasagne.layers.dropout(self.network,
                                         p=self.dropout_per_layer[i]),
                  num_units=self.num_units_per_layer[i],
-                 W=lasagne.init.Normal(std=self.std_per_layer[i], mean=0),
+                 W=lasagne.init.Normal(std=self.std_per_layer[i], mean=0.0),
                  b=lasagne.init.Constant(val=0.0),
                  nonlinearity=activation_function)
 
@@ -132,17 +133,17 @@ class FeedForwardNet(object):
         if self.is_regression:
             loss_function = lasagne.objectives.squared_error
         elif self.is_binary or self.is_multilabel:
-            loss_function = lasagne.objectives.binary_hinge_loss
+            loss_function = lasagne.objectives.binary_crossentropy
         else:
             loss_function = lasagne.objectives.categorical_crossentropy
 
         loss = loss_function(prediction, target_var)
 
         # Aggregate loss mean function with l2 Regularization on all layers' params
-        if self.is_regression or self.is_binary:
-            loss = loss.sum(dtype=theano.config.floatX)
+        if self.is_regression or self.is_binary or self.is_multilabel:
+            loss = T.sum(loss, dtype=theano.config.floatX)
         else:
-            loss = loss.mean(dtype=theano.config.floatX)
+            loss = T.mean(loss, dtype=theano.config.floatX)
         l2_penalty = self.lambda2 * lasagne.regularization.regularize_network_params(
             self.network, lasagne.regularization.l2)
         loss += l2_penalty
@@ -177,8 +178,6 @@ class FeedForwardNet(object):
             updates = lasagne.updates.sgd(loss, params,
                                           learning_rate=lr_scalar)
 
-        # Validation was removed, as auto-sklearn handles that, if this net
-        # is to be used independently, validation accuracy has to be included
         if DEBUG:
             print("... compiling theano functions")
         self.train_fn = theano.function([input_var, target_var, lr_scalar],
@@ -186,7 +185,10 @@ class FeedForwardNet(object):
                                         updates=updates,
                                         allow_input_downcast=True,
                                         profile=False,
-                                        on_unused_input='warn')
+                                        on_unused_input='warn',
+                                        name='train_fn')
+        if DEBUG:
+            print('... compiling update function')
         self.update_function = self._policy_function()
 
     def _policy_function(self):
@@ -205,14 +207,23 @@ class FeedForwardNet(object):
         return theano.function([gm, epoch, powr, step],
                                decay,
                                allow_input_downcast=True,
-                               on_unused_input='ignore')
+                               on_unused_input='ignore',
+                               name='update_fn')
 
     def fit(self, X, y):
-        # TODO: If batch size is bigger than available points
-        # training is not executed.
-        if not self.is_binary and not self.is_multilabel:
-            X = np.asarray(X, dtype=theano.config.floatX)
-            y = np.asarray(y, dtype=theano.config.floatX)
+        if self.batch_size > X.shape[0]:
+            self.batch_size = X.shape[0]
+            print('One update per epoch batch size')
+
+        if self.is_sparse:
+            X = X.astype(np.float32)
+        else:
+            try:
+                X = np.asarray(X, dtype=theano.config.floatX)
+                y = np.asarray(y, dtype=theano.config.floatX)
+            except Exception as E:
+                print('Fit casting error: %s' % E)
+
         for epoch in range(self.num_epochs):
             train_err = 0
             train_batches = 0
@@ -235,9 +246,15 @@ class FeedForwardNet(object):
             return np.argmax(predictions, axis=1)
 
     def predict_proba(self, X, is_sparse=False):
-        # TODO: Add try-except statements
         if is_sparse:
-            X = S.basic.as_sparse_or_tensor_variable(X)
+            X = X.astype(np.float32)
+            X = S.as_sparse_or_tensor_variable(X)
+        else:
+            try:
+                X = np.asarray(X, dtype=theano.config.floatX)
+            except Exception as E:
+                print('Prediction casting error: %s' % E)
+
         predictions = lasagne.layers.get_output(self.network, X, deterministic=True).eval()
         if self.is_binary:
             return np.append(1.0 - predictions, predictions, axis=1)

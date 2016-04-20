@@ -6,11 +6,11 @@ from HPOlibConfigSpace.conditions import EqualsCondition, InCondition
 from HPOlibConfigSpace.hyperparameters import UniformFloatHyperparameter, \
     UniformIntegerHyperparameter, CategoricalHyperparameter, Constant
 
-from autosklearn.pipeline.components.base import AutoSklearnClassificationAlgorithm
+from autosklearn.pipeline.components.base import AutoSklearnRegressionAlgorithm
 from autosklearn.pipeline.constants import *
 
 
-class LogReg(AutoSklearnClassificationAlgorithm):
+class LinReg(AutoSklearnRegressionAlgorithm):
 
     def __init__(self, number_updates, batch_size, dropout_output,
                  learning_rate, solver, lambda2, activation,
@@ -37,7 +37,7 @@ class LogReg(AutoSklearnClassificationAlgorithm):
         self.n_features = None
         self.input_shape = None
         self.m_issparse = False
-        self.m_isregression = False
+        self.m_isregression = True
         self.m_isbinary = False
         self.m_ismultilabel = False
 
@@ -48,18 +48,9 @@ class LogReg(AutoSklearnClassificationAlgorithm):
         self.n_features = X.shape[1]
         self.input_shape = (self.batch_size, self.n_features)
 
-        if len(y.shape) == 2 and y.shape[1] > 1:  # Multilabel
-            self.m_ismultilabel = True
-            self.num_output_units = y.shape[1]
-        else:
-            number_classes = len(np.unique(y.astype(int)))
-            if number_classes == 2:  # Make it binary
-                self.m_isbinary = True
-                self.num_output_units = 1
-                if len(y.shape) == 1:
-                    y = y[:, np.newaxis]
-            else:
-                self.num_output_units = number_classes
+        self.num_output_units = 1  # Regression
+        if len(y.shape) == 1:
+            y = y[:, np.newaxis]
 
         self.m_issparse = sp.issparse(X)
 
@@ -92,28 +83,37 @@ class LogReg(AutoSklearnClassificationAlgorithm):
                                                                epoch_step=self.epoch_step,
                                                                is_sparse=self.m_issparse,
                                                                is_binary=self.m_isbinary,
-                                                               is_multilabel=self.m_ismultilabel)
+                                                               is_multilabel=self.m_ismultilabel,
+                                                               is_regression=self.m_isregression)
         self.estimator.fit(Xf, yf)
         return self
 
     def predict(self, X):
         if self.estimator is None:
             raise NotImplementedError
-        return self.estimator.predict(X, self.m_issparse)
+        if sp.issparse(X):
+            is_sparse = True
+        else:
+            is_sparse = False
+        return self.estimator.predict(X, is_sparse)
 
     def predict_proba(self, X):
         if self.estimator is None:
             raise NotImplementedError()
-        return self.estimator.predict_proba(X, self.m_issparse)
+        if sp.issparse(X):
+            is_sparse = True
+        else:
+            is_sparse = False
+        return self.estimator.predict_proba(X, is_sparse)
 
     @staticmethod
     def get_properties(dataset_properties=None):
-        return {'shortname': 'log_reg',
-                'name': 'Logistic Regression',
-                'handles_regression': False,
-                'handles_classification': True,
-                'handles_multiclass': True,
-                'handles_multilabel': True,
+        return {'shortname': 'lin_reg',
+                'name': 'Linear Regression',
+                'handles_regression': True,
+                'handles_classification': False,
+                'handles_multiclass': False,
+                'handles_multilabel': False,
                 'is_deterministic': True,
                 'input': (DENSE, SPARSE, UNSIGNED_DATA),
                 'output': (PREDICTIONS,)}
@@ -124,9 +124,9 @@ class LogReg(AutoSklearnClassificationAlgorithm):
         policy_choices = ['fixed', 'inv', 'exp', 'step']
 
         batch_size = UniformIntegerHyperparameter("batch_size",
-                                                  32, 2048,
+                                                  100, 3000,
                                                   log=True,
-                                                  default=100)
+                                                  default=150)
 
         number_updates = UniformIntegerHyperparameter("number_updates",
                                                       500, 10500,
@@ -137,13 +137,12 @@ class LogReg(AutoSklearnClassificationAlgorithm):
                                                     default=0.5)
 
         lr = UniformFloatHyperparameter("learning_rate", 1e-6, 0.1, log=True,
-                                        default=1e-6)
+                                        default=0.01)
 
         l2 = UniformFloatHyperparameter("lambda2", 1e-6, 1e-2, log=True,
-                                        default=1e-6)
+                                        default=1e-3)
 
-        solver = CategoricalHyperparameter(name="solver", choices=["sgd", "adam"],
-                                           default="adam")
+        solver = Constant(name="solver", value="adam")
 
         beta1 = Constant(name="beta1", value=0.1)
         beta2 = Constant(name="beta2", value=0.01)
@@ -164,11 +163,7 @@ class LogReg(AutoSklearnClassificationAlgorithm):
                                                   2, 20,
                                                   default=5)
 
-        if (dataset_properties is not None and
-                dataset_properties.get('multiclass') is False):
-            non_linearities = Constant(name='activation', value='sigmoid')
-        else:
-            non_linearities = Constant(name='activation', value='softmax')
+        non_linearities = Constant(name='activation', value='linear')
 
         cs = ConfigurationSpace()
         cs.add_hyperparameter(number_updates)

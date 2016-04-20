@@ -1,10 +1,9 @@
-
 import numpy as np
 import scipy.sparse as sp
 
-from ConfigSpace.configuration_space import ConfigurationSpace
-from ConfigSpace.conditions import EqualsCondition, InCondition
-from ConfigSpace.hyperparameters import UniformFloatHyperparameter, \
+from HPOlibConfigSpace.configuration_space import ConfigurationSpace
+from HPOlibConfigSpace.conditions import EqualsCondition, InCondition
+from HPOlibConfigSpace.hyperparameters import UniformFloatHyperparameter, \
     UniformIntegerHyperparameter, CategoricalHyperparameter, Constant
 
 from autosklearn.pipeline.components.base import AutoSklearnClassificationAlgorithm
@@ -95,7 +94,7 @@ class DeepFeedNet(AutoSklearnClassificationAlgorithm):
         epoch = (self.number_updates * self.batch_size)//X.shape[0]
         number_epochs = min(max(2, epoch), 50)  # Capping of epochs
 
-        from implementation import FeedForwardNet
+        from ...implementations import FeedForwardNet
         self.estimator = FeedForwardNet.FeedForwardNet(batch_size=self.batch_size,
                                                        input_shape=self.input_shape,
                                                        num_layers=self.num_layers,
@@ -126,20 +125,12 @@ class DeepFeedNet(AutoSklearnClassificationAlgorithm):
     def predict(self, X):
         if self.estimator is None:
             raise NotImplementedError
-        if sp.issparse(X):
-            is_sparse = True
-        else:
-            is_sparse = False
-        return self.estimator.predict(X, is_sparse)
+        return self.estimator.predict(X, self.m_issparse)
 
     def predict_proba(self, X):
         if self.estimator is None:
             raise NotImplementedError()
-        if sp.issparse(X):
-            is_sparse = True
-        else:
-            is_sparse = False
-        return self.estimator.predict_proba(X, is_sparse)
+        return self.estimator.predict_proba(X, self.m_issparse)
 
     @staticmethod
     def get_properties(dataset_properties=None):
@@ -168,11 +159,12 @@ class DeepFeedNet(AutoSklearnClassificationAlgorithm):
         layer_choices = ["c", "d"]
 
         batch_size = UniformIntegerHyperparameter("batch_size",
-                                                  64, 256,
-                                                  default=128)
+                                                  32, 4096,
+                                                  log=True,
+                                                  default=32)
 
         number_updates = UniformIntegerHyperparameter("number_updates",
-                                                      200, 2500,
+                                                      200, 3500,
                                                       log=True,
                                                       default=200)
 
@@ -182,10 +174,12 @@ class DeepFeedNet(AutoSklearnClassificationAlgorithm):
 
         num_units_layer_1 = UniformIntegerHyperparameter("num_units_layer_1",
                                                          64, 4096,
-                                                         default=128)
+                                                         log=True,
+                                                         default=256)
 
         num_units_layer_2 = UniformIntegerHyperparameter("num_units_layer_2",
                                                          64, 4096,
+                                                         log=True,
                                                          default=128)
 
         dropout_layer_1 = UniformFloatHyperparameter("dropout_layer_1",
@@ -207,18 +201,18 @@ class DeepFeedNet(AutoSklearnClassificationAlgorithm):
         l2 = UniformFloatHyperparameter("lambda2", 1e-6, 1e-2, log=True,
                                         default=1e-3)
 
-        std_layer_1 = UniformFloatHyperparameter("std_layer_1", 1e-6, 0.1,
+        std_layer_1 = UniformFloatHyperparameter("std_layer_1", 0.001, 0.1,
                                                  log=True,
                                                  default=0.005)
 
-        std_layer_2 = UniformFloatHyperparameter("std_layer_2", 1e-6, 0.1,
+        std_layer_2 = UniformFloatHyperparameter("std_layer_2", 0.001, 0.1,
                                                  log=True,
                                                  default=0.005)
 
         solver = Constant(name="solver", value="adam")
 
-        beta1 = Constant(name="beta1", value=0.9)
-        beta2 = Constant(name="beta2", value=0.99)
+        beta1 = Constant(name="beta1", value=0.1)
+        beta2 = Constant(name="beta2", value=0.01)
 
         lr_policy = CategoricalHyperparameter(name="lr_policy",
                                               choices=policy_choices,
