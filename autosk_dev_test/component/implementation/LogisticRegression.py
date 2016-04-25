@@ -113,7 +113,7 @@ class LogisticRegression(object):
         loss = loss_function(prediction, target_var)
 
         # Aggregate loss mean function with l2 Regularization on all layers' params
-        if self.is_regression or self.is_binary or self.is_multilabel:
+        if self.is_binary or self.is_multilabel:
             loss = T.sum(loss, dtype=theano.config.floatX)
         else:
             loss = T.mean(loss, dtype=theano.config.floatX)

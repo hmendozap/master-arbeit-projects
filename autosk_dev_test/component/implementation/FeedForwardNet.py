@@ -14,6 +14,39 @@ import lasagne
 DEBUG = True
 
 
+def sharedX(X, dtype=theano.config.floatX, name=None):
+    return theano.shared(np.asarray(X, dtype=dtype), name=name)
+
+
+def smorms3(cost, params, learning_rate=1e-3, eps=1e-16, gather=False):
+    updates = []
+    optim_params = []
+    grads = T.grad(cost, params)
+
+    for p, grad in zip(params, grads):
+        mem = sharedX(p.get_value() * 0. + 1.)
+        g = sharedX(p.get_value() * 0.)
+        g2 = sharedX(p.get_value() * 0.)
+        if gather:
+            optim_params.append(mem)
+            optim_params.append(g)
+            optim_params.append(g2)
+
+        r_t = 1. / (mem + 1)
+        g_t = (1 - r_t) * g + r_t * grad
+        g2_t = (1 - r_t) * g2 + r_t * grad**2
+        p_t = p - grad * T.minimum(learning_rate, g_t * g_t / (g2_t + eps)) / \
+                  (T.sqrt(g2_t + eps) + eps)
+        mem_t = 1 + mem * (1 - g_t * g_t / (g2_t + eps))
+
+        updates.append((g, g_t))
+        updates.append((g2, g2_t))
+        updates.append((p, p_t))
+        updates.append((mem, mem_t))
+
+    return updates
+
+
 def iterate_minibatches(inputs, targets, batchsize, shuffle=False):
     assert inputs.shape[0] == targets.shape[0],\
            "The number of training points is not the same"
@@ -34,7 +67,7 @@ class FeedForwardNet(object):
                  dropout_per_layer=(0.5, 0.5, 0.5), std_per_layer=(0.005, 0.005, 0.005),
                  num_output_units=2, dropout_output=0.5, learning_rate=0.01,
                  lambda2=1e-4, momentum=0.9, beta1=0.9, beta2=0.9,
-                 rho=0.95, solver="sgd", num_epochs=2, activation='relu',
+                 rho=0.95, solver="adam", num_epochs=2, activation='relu',
                  lr_policy="fixed", gamma=0.01, power=1.0, epoch_step=1,
                  is_sparse=False, is_binary=False, is_regression=False, is_multilabel=False):
 
@@ -95,7 +128,7 @@ class FeedForwardNet(object):
                                                  input_var=input_var)
 
         # Choose hidden activation function
-        if self.is_binary or self.is_multilabel:
+        if self.is_binary or self.is_multilabel or self.is_regression:
             activation_function = self.binary_activation.get(self.activation,
                                                              lasagne.nonlinearities.tanh)
         else:
@@ -108,7 +141,7 @@ class FeedForwardNet(object):
                  lasagne.layers.dropout(self.network,
                                         p=self.dropout_per_layer[i]),
                  num_units=self.num_units_per_layer[i],
-                 W=lasagne.init.Normal(std=self.std_per_layer[i], mean=0.0),
+                 W=lasagne.init.GlorotNormal(gain=1.0),
                  b=lasagne.init.Constant(val=0.0),
                  nonlinearity=activation_function)
 
@@ -140,7 +173,7 @@ class FeedForwardNet(object):
         loss = loss_function(prediction, target_var)
 
         # Aggregate loss mean function with l2 Regularization on all layers' params
-        if self.is_regression or self.is_binary or self.is_multilabel:
+        if self.is_binary or self.is_multilabel:
             loss = T.sum(loss, dtype=theano.config.floatX)
         else:
             loss = T.mean(loss, dtype=theano.config.floatX)
@@ -174,6 +207,9 @@ class FeedForwardNet(object):
             updates = lasagne.updates.momentum(loss, params,
                                                learning_rate=lr_scalar,
                                                momentum=self.momentum)
+        elif solver == "smorm3s":
+            updates = smorms3(loss, params,
+                              learning_rate=lr_scalar)
         else:
             updates = lasagne.updates.sgd(loss, params,
                                           learning_rate=lr_scalar)
