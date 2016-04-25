@@ -1,16 +1,13 @@
-
 import numpy as np
 import scipy.sparse as sp
 
 from HPOlibConfigSpace.configuration_space import ConfigurationSpace
 from HPOlibConfigSpace.conditions import EqualsCondition, InCondition
 from HPOlibConfigSpace.hyperparameters import UniformFloatHyperparameter, \
-    UniformIntegerHyperparameter, CategoricalHyperparameter, \
-    UnParametrizedHyperparameter
+    UniformIntegerHyperparameter, CategoricalHyperparameter, Constant
 
 from autosklearn.pipeline.components.base import AutoSklearnClassificationAlgorithm
 from autosklearn.pipeline.constants import *
-from implementation import FeedForwardNet
 
 
 class DeepFeedNet(AutoSklearnClassificationAlgorithm):
@@ -51,6 +48,7 @@ class DeepFeedNet(AutoSklearnClassificationAlgorithm):
         self.input_shape = None
         self.m_issparse = False
         self.m_isbinary = False
+        self.m_ismultilabel = False
 
         # To avoid eval call. Could be done with **karws
         args = locals()
@@ -68,26 +66,25 @@ class DeepFeedNet(AutoSklearnClassificationAlgorithm):
         self.batch_size = int(self.batch_size)
         self.n_features = X.shape[1]
         self.input_shape = (self.batch_size, self.n_features)
-        number_classes = len(np.unique(y.astype(int)))
 
         assert len(self.num_units_per_layer) == self.num_layers - 1,\
             "Number of created layers is different than actual layers"
         assert len(self.dropout_per_layer) == self.num_layers - 1,\
             "Number of created layers is different than actual layers"
 
-        if len(y.shape) == 2 and y.shape[1] > 1:
-            # TODO: Have to check in case that is multilabel
-            raise NotImplementedError("NN Multilabel classification"
-                                      "not yet implemented")
-
-        # Make it binary
-        if number_classes == 2:
-            self.m_isbinary = True
-            self.num_output_units = 1
-            if len(y.shape) == 1:
-                y = y[:, np.newaxis]
+        # TODO: Better if statement
+        if len(y.shape) == 2 and y.shape[1] > 1:  # Multilabel
+            self.m_ismultilabel = True
+            self.num_output_units = y.shape[1]
         else:
-            self.num_output_units = number_classes
+            number_classes = len(np.unique(y.astype(int)))
+            if number_classes == 2:  # Make it binary
+                self.m_isbinary = True
+                self.num_output_units = 1
+                if len(y.shape) == 1:
+                    y = y[:, np.newaxis]
+            else:
+                self.num_output_units = number_classes
 
         self.m_issparse = sp.issparse(X)
 
@@ -98,9 +95,9 @@ class DeepFeedNet(AutoSklearnClassificationAlgorithm):
         Xf, yf = self._prefit(X, y)
 
         epoch = (self.number_updates * self.batch_size)//X.shape[0]
-        number_epochs = max(2, epoch)
-        # number_epochs = min(max(2, epoch), 30)
+        number_epochs = min(max(2, epoch), 80)  # Capping of epochs
 
+        from ...implementations import FeedForwardNet
         self.estimator = FeedForwardNet.FeedForwardNet(batch_size=self.batch_size,
                                                        input_shape=self.input_shape,
                                                        num_layers=self.num_layers,
@@ -123,27 +120,20 @@ class DeepFeedNet(AutoSklearnClassificationAlgorithm):
                                                        power=self.power,
                                                        epoch_step=self.epoch_step,
                                                        is_sparse=self.m_issparse,
-                                                       is_binary=self.m_isbinary)
+                                                       is_binary=self.m_isbinary,
+                                                       is_multilabel=self.m_ismultilabel)
         self.estimator.fit(Xf, yf)
         return self
 
     def predict(self, X):
         if self.estimator is None:
             raise NotImplementedError
-        if sp.issparse(X):
-            is_sparse = True
-        else:
-            is_sparse = False
-        return self.estimator.predict(X, is_sparse)
+        return self.estimator.predict(X, self.m_issparse)
 
     def predict_proba(self, X):
         if self.estimator is None:
             raise NotImplementedError()
-        if sp.issparse(X):
-            is_sparse = True
-        else:
-            is_sparse = False
-        return self.estimator.predict_proba(X, is_sparse)
+        return self.estimator.predict_proba(X, self.m_issparse)
 
     @staticmethod
     def get_properties(dataset_properties=None):
@@ -152,7 +142,7 @@ class DeepFeedNet(AutoSklearnClassificationAlgorithm):
                 'handles_regression': False,
                 'handles_classification': True,
                 'handles_multiclass': True,
-                'handles_multilabel': False,
+                'handles_multilabel': True,
                 'is_deterministic': True,
                 'input': (DENSE, SPARSE, UNSIGNED_DATA),
                 'output': (PREDICTIONS,)}
@@ -160,52 +150,41 @@ class DeepFeedNet(AutoSklearnClassificationAlgorithm):
     @staticmethod
     def get_hyperparameter_search_space(dataset_properties=None):
 
-        solver_choices = ["adam", "adadelta", "adagrad", "sgd", "momentum", "nesterov"]
-
-        policy_choices = ['fixed', 'inv', 'exp', 'step']
-
-        # TODO: Add ScaledTanh hyperparamteres and Leakyrectify
-        binary_activations = ['sigmoid', 'tanh', 'scaledTanh', 'softplus',
-                              'elu', 'relu']
-
-        multiclass_activations = ['relu', 'leaky', 'very_leaky', 'elu',
-                                  'softplus', 'softmax', 'linear', 'scaledTanh']
 
         # Hacky way to condition layers params based on the number of layers
-        # 'c'=2, 'd'=3, 'e'=4 ,'f'=5, 'g'=6, 'h'=7
+        # 'c'=1, 'd'=2, 'e'=3 ,'f'=4', g ='5', h='6' + output_layer
         layer_choices = [chr(i) for i in xrange(ord('c'), ord('i'))]
 
-        batch_size = UniformIntegerHyperparameter("batch_size", 100, 1000,
+
+        batch_size = UniformIntegerHyperparameter("batch_size",
+                                                  32, 4096,
                                                   log=True,
-                                                  default=100)
+                                                  default=32)
 
         number_updates = UniformIntegerHyperparameter("number_updates",
-                                                      50, 2500,
+                                                      50, 3500,
                                                       log=True,
-                                                      default=150)
-
-        # number_epochs = UniformIntegerHyperparameter("number_epochs", 2, 20,
-        #                                             default=3)
+                                                      default=200)
 
         num_layers = CategoricalHyperparameter("num_layers",
                                                choices=layer_choices,
-                                               default='e')
+                                               default='c')
 
         # <editor-fold desc="Number of units in layers 1-6">
         num_units_layer_1 = UniformIntegerHyperparameter("num_units_layer_1",
-                                                         10, 6144,
+                                                         64, 4096,
                                                          log=True,
-                                                         default=10)
+                                                         default=256)
 
         num_units_layer_2 = UniformIntegerHyperparameter("num_units_layer_2",
-                                                         10, 6144,
+                                                         64, 4096,
                                                          log=True,
-                                                         default=10)
+                                                         default=128)
 
         num_units_layer_3 = UniformIntegerHyperparameter("num_units_layer_3",
-                                                         10, 6144,
+                                                         64, 4096,
                                                          log=True,
-                                                         default=10)
+                                                         default=128)
 
         num_units_layer_4 = UniformIntegerHyperparameter("num_units_layer_4",
                                                          10, 6144,
@@ -249,13 +228,14 @@ class DeepFeedNet(AutoSklearnClassificationAlgorithm):
                                                      default=0.5)
         # </editor-fold>
 
-        dropout_output = UniformFloatHyperparameter("dropout_output", 0.0, 0.99,
+        dropout_output = UniformFloatHyperparameter("dropout_output",
+                                                    0.0, 0.99,
                                                     default=0.5)
 
         lr = UniformFloatHyperparameter("learning_rate", 1e-6, 1, log=True,
                                         default=0.01)
+        #TODO: Check with Aaron if lr for smorm3s should be categorical
 
-        # Todo: Check lambda2 parameter bounds
         l2 = UniformFloatHyperparameter("lambda2", 1e-6, 1e-2, log=True,
                                         default=1e-3)
 
@@ -267,38 +247,46 @@ class DeepFeedNet(AutoSklearnClassificationAlgorithm):
                                                  log=True,
                                                  default=0.005)
 
-        std_layer_2 = UniformFloatHyperparameter("std_layer_2", 1e-6, 0.1,
+        std_layer_2 = UniformFloatHyperparameter("std_layer_2", 0.001, 0.1,
                                                  log=True,
                                                  default=0.005)
 
-        std_layer_3 = UniformFloatHyperparameter("std_layer_3", 1e-6, 0.1,
+        std_layer_3 = UniformFloatHyperparameter("std_layer_3", 0.001, 0.1,
                                                  log=True,
                                                  default=0.005)
 
-        std_layer_4 = UniformFloatHyperparameter("std_layer_4", 1e-6, 0.1,
-                                                 log=True,
-                                                 default=0.005)
 
-        std_layer_5 = UniformFloatHyperparameter("std_layer_5", 1e-6, 0.1,
-                                                 log=True,
-                                                 default=0.005)
+        solver_choices = ["adam", "adadelta","adagrad",
+                          "sgd", "momentum", "nesterov",
+                          "smorm3s"]
 
-        std_layer_6 = UniformFloatHyperparameter("std_layer_6", 1e-6, 0.1,
-                                                 log=True,
-                                                 default=0.005)
-        # </editor-fold>
+        policy_choices = ['fixed', 'inv', 'exp', 'step']
+
+        # TODO: Add ScaledTanh hyperparamteres and Leakyrectify
+        binary_activations = ['sigmoid', 'tanh', 'scaledTanh', 'softplus',
+                              'elu', 'relu']
+
+        multiclass_activations = ['relu', 'leaky', 'very_leaky', 'elu',
+                                  'softplus', 'softmax', 'linear', 'scaledTanh']
 
         solver = CategoricalHyperparameter(name="solver",
                                            choices=solver_choices,
-                                           default="sgd")
+                                           default="adam")
 
         beta1 = UniformFloatHyperparameter("beta1", 1e-4, 0.1,
                                            log=True,
                                            default=0.1)
+
         beta2 = UniformFloatHyperparameter("beta2", 1e-4, 0.1,
                                            log=True,
-                                           default=0.1)
-        rho = UniformFloatHyperparameter("rho", 0.0, 1.0, default=0.95)
+                                           default=0.01)
+
+        rho = UniformFloatHyperparameter("rho", 0.0, 1.0,
+                                         log=True,
+                                         default=0.95)
+
+        momentum = UniformFloatHyperparameter("momentum", 0.3, 0.999,
+                                              default=0.9)
 
         lr_policy = CategoricalHyperparameter(name="lr_policy",
                                               choices=policy_choices,
@@ -313,12 +301,11 @@ class DeepFeedNet(AutoSklearnClassificationAlgorithm):
                                            default=0.5)
 
         epoch_step = UniformIntegerHyperparameter("epoch_step",
-                                                  2, 10,
-                                                  default=2)
+                                                  2, 20,
+                                                  default=5)
 
         if (dataset_properties is not None and
-                dataset_properties.get('multiclass') is False):
-
+                    dataset_properties.get('multiclass') is False):
             non_linearities = CategoricalHyperparameter(name='activation',
                                                         choices=binary_activations,
                                                         default='sigmoid')
@@ -354,9 +341,9 @@ class DeepFeedNet(AutoSklearnClassificationAlgorithm):
         cs.add_hyperparameter(lr)
         cs.add_hyperparameter(l2)
         cs.add_hyperparameter(solver)
-        cs.add_hyperparameter(momentum)
         cs.add_hyperparameter(beta1)
         cs.add_hyperparameter(beta2)
+        cs.add_hyperparameter(momentum)
         cs.add_hyperparameter(rho)
         cs.add_hyperparameter(lr_policy)
         cs.add_hyperparameter(gamma)
