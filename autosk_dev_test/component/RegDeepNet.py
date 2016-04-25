@@ -71,6 +71,10 @@ class RegDeepNet(AutoSklearnRegressionAlgorithm):
             "Number of created layers is different than actual layers"
 
         self.num_output_units = 1  # Regression
+        # Normalize the output - Suggestion on 24.04
+        self.mean_y = np.mean(y)
+        self.std_y = np.std(y)
+        y = (y - self.mean_y) / self.std_y
         if len(y.shape) == 1:
             y = y[:, np.newaxis]
 
@@ -116,20 +120,13 @@ class RegDeepNet(AutoSklearnRegressionAlgorithm):
     def predict(self, X):
         if self.estimator is None:
             raise NotImplementedError
-        if sp.issparse(X):
-            is_sparse = True
-        else:
-            is_sparse = False
-        return self.estimator.predict(X, is_sparse)
+        preds = self.estimator.predict(X, self. m_issparse)
+        return preds * self.std_y + self.mean_y
 
     def predict_proba(self, X):
         if self.estimator is None:
             raise NotImplementedError()
-        if sp.issparse(X):
-            is_sparse = True
-        else:
-            is_sparse = False
-        return self.estimator.predict_proba(X, is_sparse)
+        return self.estimator.predict_proba(X, self.m_issparse)
 
     @staticmethod
     def get_properties(dataset_properties=None):
@@ -145,8 +142,6 @@ class RegDeepNet(AutoSklearnRegressionAlgorithm):
 
     @staticmethod
     def get_hyperparameter_search_space(dataset_properties=None):
-        policy_choices = ['fixed', 'inv', 'exp', 'step']
-
         # GPUTRACK: Based on http://svail.github.io/rnn_perf/
         # We make batch size and number of units multiples of 64
 
@@ -159,7 +154,7 @@ class RegDeepNet(AutoSklearnRegressionAlgorithm):
 
         batch_size = UniformIntegerHyperparameter("batch_size",
                                                   64, 2048,
-                                                  default=150)
+                                                  default=550)
 
         number_updates = UniformIntegerHyperparameter("number_updates",
                                                       200, 5500,
@@ -198,9 +193,9 @@ class RegDeepNet(AutoSklearnRegressionAlgorithm):
                                                     0.0, 0.99,
                                                     default=0.5)
 
-        lr = UniformFloatHyperparameter("learning_rate", 1e-6, 0.1,
-                                        log=True,
-                                        default=0.01)
+        lr = CategoricalHyperparameter("learning_rate",
+                                       choices=[1e-1, 1e-2, 1e-3, 1e-4],
+                                       default=1e-2)
 
         l2 = UniformFloatHyperparameter("lambda2", 1e-6, 1e-2, log=True,
                                         default=1e-3)
@@ -217,45 +212,12 @@ class RegDeepNet(AutoSklearnRegressionAlgorithm):
                                                  log=True,
                                                  default=0.005)
 
-        solver_choices = ["adam", "adadelta", "adagrad", "sgd",
-                          "momentum", "nesterov"]
-
-        solver = CategoricalHyperparameter(name="solver",
-                                           choices=solver_choices,
-                                           default="adam")
-
-        beta1 = UniformFloatHyperparameter("beta1", 1e-4, 0.1,
-                                           log=True,
-                                           default=0.1)
-
-        beta2 = UniformFloatHyperparameter("beta2", 1e-4, 0.1,
-                                           log=True,
-                                           default=0.01)
-
-        rho = UniformFloatHyperparameter("rho", 0.0, 1.0, default=0.95)
-
-        momentum = UniformFloatHyperparameter("momentum", 0.3, 0.999,
-                                              default=0.9)
-
-        lr_policy = CategoricalHyperparameter(name="lr_policy",
-                                              choices=policy_choices,
-                                              default='fixed')
-
-        gamma = UniformFloatHyperparameter(name="gamma",
-                                           lower=1e-3, upper=1e-1,
-                                           default=1e-2)
-
-        power = UniformFloatHyperparameter("power",
-                                           0.0, 1.0,
-                                           default=0.5)
-
-        epoch_step = UniformIntegerHyperparameter("epoch_step",
-                                                  2, 20,
-                                                  default=5)
+        # Using Tobias' adam
+        solver = Constant(name="solver", value="smorm3s")
 
         non_linearities = CategoricalHyperparameter(name='activation',
-                                                    choices=['relu', 'very_leaky'],
-                                                    default='relu')
+                                                    choices=['tanh', 'scaledTanh', 'sigmoid'],
+                                                    default='tanh')
 
         cs = ConfigurationSpace()
         # cs.add_hyperparameter(number_epochs)
@@ -275,14 +237,6 @@ class RegDeepNet(AutoSklearnRegressionAlgorithm):
         cs.add_hyperparameter(lr)
         cs.add_hyperparameter(l2)
         cs.add_hyperparameter(solver)
-        cs.add_hyperparameter(beta1)
-        cs.add_hyperparameter(beta2)
-        cs.add_hyperparameter(momentum)
-        cs.add_hyperparameter(rho)
-        cs.add_hyperparameter(lr_policy)
-        cs.add_hyperparameter(gamma)
-        cs.add_hyperparameter(power)
-        cs.add_hyperparameter(epoch_step)
         cs.add_hyperparameter(non_linearities)
 
         layer_2_condition = InCondition(num_units_layer_2, num_layers,
@@ -305,25 +259,5 @@ class RegDeepNet(AutoSklearnRegressionAlgorithm):
         std_3_condition = InCondition(std_layer_3, num_layers, ['e'])
         cs.add_condition(std_2_condition)
         cs.add_condition(std_3_condition)
-
-        momentum_depends_on_solver = InCondition(momentum, solver,
-                                                 values=["sgd", "momentum", "nesterov"])
-
-        beta1_depends_on_solver = EqualsCondition(beta1, solver, "adam")
-        beta2_depends_on_solver = EqualsCondition(beta2, solver, "adam")
-        rho_depends_on_solver = EqualsCondition(rho, solver, "adadelta")
-        gamma_depends_on_policy = InCondition(child=gamma, parent=lr_policy,
-                                              values=['inv', 'exp', 'step'])
-        power_depends_on_policy = EqualsCondition(power, lr_policy, 'inv')
-        epoch_step_depends_on_policy = EqualsCondition(epoch_step,
-                                                       lr_policy, 'step')
-
-        cs.add_condition(momentum_depends_on_solver)
-        cs.add_condition(beta1_depends_on_solver)
-        cs.add_condition(beta2_depends_on_solver)
-        cs.add_condition(rho_depends_on_solver)
-        cs.add_condition(gamma_depends_on_policy)
-        cs.add_condition(power_depends_on_policy)
-        cs.add_condition(epoch_step_depends_on_policy)
 
         return cs
