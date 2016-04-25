@@ -21,6 +21,14 @@ def _hyp_split(x, listing):
         listing.append(pname)
     return param_value[1]
 
+
+def _validate_choice_names(x):
+    name = x.split(':')[-1]
+    if name == 'choice':
+        return x.split(':')[0]
+    else:
+        return name
+
 DEBUG = False
 
 
@@ -197,17 +205,15 @@ class ConfigReader:
             from operator import itemgetter
             full_parameter_names = map(lambda y: itemgetter(0, -1)(y.split(':')), names)
 
-            params_inx = _pd.MultiIndex.from_tuples(smac_cols + list(full_parameter_names))
-            traj_res.columns = params_inx + ['expected']
-            traj_res.performance = _pd.to_numeric(traj_res['performance'], errors='coerce')
-            traj_res.sort_values(by='performance', axis=0, ascending=False, na_position='first', inplace=True)
-            traj_res.drop_duplicates('incumbentID', keep='last', inplace=True)
-
-            class_df = traj_res.drop('expected', axis=1)
+            params_inx = _pd.MultiIndex.from_tuples(smac_cols + list(full_parameter_names) +
+                                                    [('smac', 'expected')])
+            traj_res.columns = params_inx
+            traj_res.performance = _pd.to_numeric(traj_res['smac']['performance'], errors='coerce')
+            traj_res.sort_values(by=('smac', 'performance'), axis=0, ascending=False, na_position='first', inplace=True)
+            traj_res.drop_duplicates(('smac', 'incumbentID'), keep='last', inplace=True)
+            class_df = traj_res.drop(('smac', 'expected'), axis=1)
         else:
-            classifier_names = list(map(lambda X: X.split(':')[-1], names))
-            # Avoid this magic constant
-            classifier_names[33] = 'preprocessor'
+            classifier_names = list(map(_validate_choice_names, names))
 
             traj_res.columns = traj_cols + classifier_names + ['expected']
             # Drop duplicated configuration and leave the best X-validation error
@@ -216,8 +222,9 @@ class ConfigReader:
             traj_res.drop_duplicates('incumbentID', keep='last', inplace=True)
 
             # Drop "unnecessary" columns
-            cols_to_drop = [0, 2, 3, 4, 6, 35, 36, 37] + range(39, len(names)+6)
-            class_df = traj_res.drop(traj_res.columns[cols_to_drop], axis=1)
+            cols_to_drop = ['incumbentID', 'autoconfig_time', 'strategy',
+                            'minimum_fraction', 'rescaling', 'expected']
+            class_df = traj_res.drop(cols_to_drop, axis=1)
 
         return class_df.copy()
 
