@@ -33,7 +33,6 @@ class DeepFeedNet(AutoSklearnClassificationAlgorithm):
         self.lr_policy = lr_policy
         self.lambda2 = lambda2
         self.momentum = momentum
-        # Added 1-beta due to change in config space
         self.beta1 = 1-beta1
         self.beta2 = 1-beta2
         self.rho = rho
@@ -97,7 +96,7 @@ class DeepFeedNet(AutoSklearnClassificationAlgorithm):
         epoch = (self.number_updates * self.batch_size)//X.shape[0]
         number_epochs = min(max(2, epoch), 80)  # Capping of epochs
 
-        from ...implementations import FeedForwardNet
+        from implementation import FeedForwardNet
         self.estimator = FeedForwardNet.FeedForwardNet(batch_size=self.batch_size,
                                                        input_shape=self.input_shape,
                                                        num_layers=self.num_layers,
@@ -232,15 +231,14 @@ class DeepFeedNet(AutoSklearnClassificationAlgorithm):
                                                     0.0, 0.99,
                                                     default=0.5)
 
-        lr = UniformFloatHyperparameter("learning_rate", 1e-6, 1, log=True,
+        lr = UniformFloatHyperparameter("learning_rate", 1e-6, 1.0,
+                                        log=True,
                                         default=0.01)
         #TODO: Check with Aaron if lr for smorm3s should be categorical
 
-        l2 = UniformFloatHyperparameter("lambda2", 1e-6, 1e-2, log=True,
-                                        default=1e-3)
-
-        momentum = UniformFloatHyperparameter("momentum", 0.3, 0.999,
-                                              default=0.9)
+        l2 = UniformFloatHyperparameter("lambda2", 1e-7, 1e-2,
+                                        log=True,
+                                        default=1e-4)
 
         # <editor-fold desc="Std for layers 1-6">
         std_layer_1 = UniformFloatHyperparameter("std_layer_1", 1e-6, 0.1,
@@ -255,23 +253,26 @@ class DeepFeedNet(AutoSklearnClassificationAlgorithm):
                                                  log=True,
                                                  default=0.005)
 
+        std_layer_4 = UniformFloatHyperparameter("std_layer_4", 0.001, 0.1,
+                                                 log=True,
+                                                 default=0.005)
 
-        solver_choices = ["adam", "adadelta","adagrad",
+        std_layer_5 = UniformFloatHyperparameter("std_layer_5", 0.001, 0.1,
+                                                 log=True,
+                                                 default=0.005)
+
+        std_layer_6 = UniformFloatHyperparameter("std_layer_6", 0.001, 0.1,
+                                                 log=True,
+                                                 default=0.005)
+        # </editor-fold>
+
+        solver_choices = ["adam", "adadelta", "adagrad",
                           "sgd", "momentum", "nesterov",
                           "smorm3s"]
 
-        policy_choices = ['fixed', 'inv', 'exp', 'step']
-
-        # TODO: Add ScaledTanh hyperparamteres and Leakyrectify
-        binary_activations = ['sigmoid', 'tanh', 'scaledTanh', 'softplus',
-                              'elu', 'relu']
-
-        multiclass_activations = ['relu', 'leaky', 'very_leaky', 'elu',
-                                  'softplus', 'softmax', 'linear', 'scaledTanh']
-
         solver = CategoricalHyperparameter(name="solver",
                                            choices=solver_choices,
-                                           default="adam")
+                                           default="smorm3s")
 
         beta1 = UniformFloatHyperparameter("beta1", 1e-4, 0.1,
                                            log=True,
@@ -281,12 +282,15 @@ class DeepFeedNet(AutoSklearnClassificationAlgorithm):
                                            log=True,
                                            default=0.01)
 
-        rho = UniformFloatHyperparameter("rho", 0.0, 1.0,
+        rho = UniformFloatHyperparameter("rho", 0.05, 0.99,
                                          log=True,
                                          default=0.95)
 
         momentum = UniformFloatHyperparameter("momentum", 0.3, 0.999,
                                               default=0.9)
+
+        # TODO: Add policy based on this sklearn sgd
+        policy_choices = ['fixed', 'inv', 'exp', 'step']
 
         lr_policy = CategoricalHyperparameter(name="lr_policy",
                                               choices=policy_choices,
@@ -304,15 +308,38 @@ class DeepFeedNet(AutoSklearnClassificationAlgorithm):
                                                   2, 20,
                                                   default=5)
 
+        output_activations = ['softmax', 'sigmoid', 'softplus']
+
+        binary_activations = ['sigmoid', 'tanh', 'scaledTanh', 'elu', 'relu']
+
+        multiclass_activations = ['relu', 'leaky', 'very_leaky', 'elu', 'linear', 'scaledTanh']
+
         if (dataset_properties is not None and
-                    dataset_properties.get('multiclass') is False):
-            non_linearities = CategoricalHyperparameter(name='activation',
-                                                        choices=binary_activations,
-                                                        default='sigmoid')
+                dataset_properties.get('multiclass') is False):
+            nonlinearities = CategoricalHyperparameter(name='activation',
+                                                       choices=binary_activations,
+                                                       default='sigmoid')
         else:
-            non_linearities = CategoricalHyperparameter(name='activation',
-                                                        choices=multiclass_activations,
-                                                        default='relu')
+            nonlinearities = CategoricalHyperparameter(name='activation',
+                                                       choices=multiclass_activations,
+                                                       default='relu')
+
+        leakiness = UniformFloatHyperparameter('leakiness',
+                                               0.01, 0.99,
+                                               default=0.3)
+        # http://lasagne.readthedocs.io/en/latest/modules/nonlinearities.html
+        # #lasagne.nonlinearities.ScaledTanH
+        # For normalized inputs, tanh_alpha = 2./3. and tanh_beta = 1.7159,
+        # according to http://yann.lecun.com/exdb/publis/pdf/lecun-98b.pdf
+
+        # TODO: Review the bounds
+        tanh_alpha = UniformFloatHyperparameter('tanh_alpha', 0.5, 1.0,
+                                                default=2./3.)
+        tanh_beta = UniformFloatHyperparameter('tanh_beta', 1.1, 3.0,
+                                               log=True,
+                                               default=1.7159)
+
+
 
         cs = ConfigurationSpace()
         # cs.add_hyperparameter(number_epochs)
@@ -349,7 +376,10 @@ class DeepFeedNet(AutoSklearnClassificationAlgorithm):
         cs.add_hyperparameter(gamma)
         cs.add_hyperparameter(power)
         cs.add_hyperparameter(epoch_step)
-        cs.add_hyperparameter(non_linearities)
+        cs.add_hyperparameter(nonlinearities)
+        cs.add_hyperparameter(leakiness)
+        cs.add_hyperparameter(tanh_alpha)
+        cs.add_hyperparameter(tanh_beta)
 
         # TODO: Put this conditioning in a for-loop
         # Condition layers parameter on layer choice
@@ -390,16 +420,18 @@ class DeepFeedNet(AutoSklearnClassificationAlgorithm):
 
         momentum_depends_on_solver = InCondition(momentum, solver,
                                                  values=["sgd", "momentum", "nesterov"])
+
         beta1_depends_on_solver = EqualsCondition(beta1, solver, "adam")
         beta2_depends_on_solver = EqualsCondition(beta2, solver, "adam")
         rho_depends_on_solver = EqualsCondition(rho, solver, "adadelta")
+
         lr_policy_depends_on_solver = InCondition(lr_policy, solver,
                                                   ["adadelta", "adagrad", "sgd",
                                                    "momentum", "nesterov"])
         gamma_depends_on_policy = InCondition(child=gamma, parent=lr_policy,
-                                              values=['inv', 'exp', 'step'])
-        power_depends_on_policy = EqualsCondition(power, lr_policy, 'inv')
-        epoch_step_depends_on_policy = EqualsCondition(epoch_step, lr_policy, 'step')
+                                              values=["inv", "exp", "step"])
+        power_depends_on_policy = EqualsCondition(power, lr_policy, "inv")
+        epoch_step_depends_on_policy = EqualsCondition(epoch_step, lr_policy, "step")
 
         cs.add_condition(momentum_depends_on_solver)
         cs.add_condition(beta1_depends_on_solver)
