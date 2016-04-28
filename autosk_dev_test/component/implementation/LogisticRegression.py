@@ -30,7 +30,7 @@ class LogisticRegression(object):
     def __init__(self, input_shape=(100, 28*28), batch_size=100,
                  num_output_units=2, dropout_output=0.5, learning_rate=0.01,
                  lambda2=1e-4, momentum=0.9, beta1=0.9, beta2=0.9,
-                 rho=0.95, solver="sgd", num_epochs=10, activation='relu',
+                 rho=0.95, solver="sgd", num_epochs=10,
                  lr_policy="fixed", gamma=0.01, power=1.0, epoch_step=1,
                  is_sparse=False, is_binary=False, is_regression=False,
                  is_multilabel=False):
@@ -59,7 +59,6 @@ class LogisticRegression(object):
         self.is_multilabel = is_multilabel
         self.is_sparse = is_sparse
         self.solver = solver
-        self.activation = activation
 
         if is_sparse:
             input_var = S.csr_matrix('inputs', dtype=theano.config.floatX)
@@ -79,7 +78,7 @@ class LogisticRegression(object):
             if self.is_regression:
                 print("... using regression loss")
             print("... building regressor")
-            print input_shape
+            print(input_shape)
             print("... with number of epochs")
             print(num_epochs)
 

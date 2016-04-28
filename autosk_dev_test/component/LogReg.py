@@ -13,7 +13,7 @@ from autosklearn.pipeline.constants import *
 class LogReg(AutoSklearnClassificationAlgorithm):
 
     def __init__(self, number_updates, batch_size, dropout_output,
-                 learning_rate, solver, lambda2, activation,
+                 learning_rate, solver, lambda2,
                  momentum=0.99, beta1=0.9, beta2=0.9, rho=0.95,
                  lr_policy='fixed', gamma=0.01, power=1.0, epoch_step=2,
                  random_state=None):
@@ -28,7 +28,6 @@ class LogReg(AutoSklearnClassificationAlgorithm):
         self.beta2 = 1-beta2
         self.rho = rho
         self.solver = solver
-        self.activation = activation
         self.gamma = gamma
         self.power = power
         self.epoch_step = epoch_step
@@ -72,7 +71,7 @@ class LogReg(AutoSklearnClassificationAlgorithm):
         epoch = (self.number_updates * self.batch_size)//X.shape[0]
         number_epochs = min(max(2, epoch), 210)  # Cap the max number of possible epochs
 
-        from ...implementations import LogisticRegression
+        from implementation import LogisticRegression
         self.estimator = LogisticRegression.LogisticRegression(batch_size=self.batch_size,
                                                                input_shape=self.input_shape,
                                                                num_output_units=self.num_output_units,
@@ -85,7 +84,6 @@ class LogReg(AutoSklearnClassificationAlgorithm):
                                                                beta2=self.beta2,
                                                                rho=self.rho,
                                                                solver=self.solver,
-                                                               activation=self.activation,
                                                                num_epochs=number_epochs,
                                                                gamma=self.gamma,
                                                                power=self.power,

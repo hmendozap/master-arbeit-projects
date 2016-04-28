@@ -13,7 +13,7 @@ from autosklearn.pipeline.constants import *
 class LinReg(AutoSklearnRegressionAlgorithm):
 
     def __init__(self, number_updates, batch_size, dropout_output,
-                 learning_rate, solver, lambda2, activation,
+                 learning_rate, solver, lambda2,
                  momentum=0.99, beta1=0.9, beta2=0.9, rho=0.95,
                  lr_policy='fixed', gamma=0.01, power=1.0, epoch_step=2,
                  random_state=None):
@@ -24,11 +24,10 @@ class LinReg(AutoSklearnRegressionAlgorithm):
         self.lr_policy = lr_policy
         self.lambda2 = lambda2
         self.momentum = momentum
-        self.beta1 = 1-beta1
-        self.beta2 = 1-beta2
+        self.beta1 = 1-beta1 if beta1 is not None else 0.9
+        self.beta2 = 1-beta2 if beta2 is not None else 0.99
         self.rho = rho
         self.solver = solver
-        self.activation = activation
         self.gamma = gamma
         self.power = power
         self.epoch_step = epoch_step
@@ -49,6 +48,10 @@ class LinReg(AutoSklearnRegressionAlgorithm):
         self.input_shape = (self.batch_size, self.n_features)
 
         self.num_output_units = 1  # Regression
+        # Normalize the output
+        self.mean_y = np.mean(y)
+        self.std_y = np.std(y)
+        y = (y - self.mean_y) / self.std_y
         if len(y.shape) == 1:
             y = y[:, np.newaxis]
 
@@ -61,9 +64,9 @@ class LinReg(AutoSklearnRegressionAlgorithm):
         Xf, yf = self._prefit(X, y)
 
         epoch = (self.number_updates * self.batch_size)//X.shape[0]
-        number_epochs = min(max(2, epoch), 210)  # Cap the max number of possible epochs
+        number_epochs = min(max(2, epoch), 110)  # Cap the max number of possible epochs
 
-        from ...implementations import LogisticRegression
+        from implementation import LogisticRegression
         self.estimator = LogisticRegression.LogisticRegression(batch_size=self.batch_size,
                                                                input_shape=self.input_shape,
                                                                num_output_units=self.num_output_units,
@@ -76,7 +79,6 @@ class LinReg(AutoSklearnRegressionAlgorithm):
                                                                beta2=self.beta2,
                                                                rho=self.rho,
                                                                solver=self.solver,
-                                                               activation=self.activation,
                                                                num_epochs=number_epochs,
                                                                gamma=self.gamma,
                                                                power=self.power,
@@ -91,20 +93,13 @@ class LinReg(AutoSklearnRegressionAlgorithm):
     def predict(self, X):
         if self.estimator is None:
             raise NotImplementedError
-        if sp.issparse(X):
-            is_sparse = True
-        else:
-            is_sparse = False
-        return self.estimator.predict(X, is_sparse)
+        preds = self.estimator.predict(X, self.m_issparse)
+        return preds * self.std_y + self.mean_y
 
     def predict_proba(self, X):
         if self.estimator is None:
             raise NotImplementedError()
-        if sp.issparse(X):
-            is_sparse = True
-        else:
-            is_sparse = False
-        return self.estimator.predict_proba(X, is_sparse)
+        return self.estimator.predict_proba(X, self.m_issparse)
 
     @staticmethod
     def get_properties(dataset_properties=None):
@@ -131,19 +126,22 @@ class LinReg(AutoSklearnRegressionAlgorithm):
         number_updates = UniformIntegerHyperparameter("number_updates",
                                                       500, 10500,
                                                       log=True,
-                                                      default=1050)
+                                                      default=500)
 
         dropout_output = UniformFloatHyperparameter("dropout_output", 0.0, 0.99,
                                                     default=0.5)
 
-        lr = UniformFloatHyperparameter("learning_rate", 1e-6, 0.1, log=True,
+        lr = UniformFloatHyperparameter("learning_rate", 1e-6, 0.1,
+                                        log=True,
                                         default=0.01)
 
-        l2 = UniformFloatHyperparameter("lambda2", 1e-6, 1e-2, log=True,
+        l2 = UniformFloatHyperparameter("lambda2", 1e-6, 1e-2,
+                                        log=True,
                                         default=1e-3)
 
-        solver = CategoricalHyperparameter(name="solver", choices=["sgd", "adam"],
-                                           default="adam")
+        solver = CategoricalHyperparameter(name="solver",
+                                           choices=["sgd", "adam"],
+                                           default="sgd")
 
         beta1 = UniformFloatHyperparameter("beta1", 1e-4, 0.1,
                                            log=True,
