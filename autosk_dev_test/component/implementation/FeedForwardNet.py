@@ -127,12 +127,7 @@ class FeedForwardNet(object):
                                                  input_var=input_var)
 
         # Choose hidden activation function
-        if self.is_binary or self.is_multilabel or self.is_regression:
-            activation_function = self.binary_activation.get(self.activation,
-                                                             lasagne.nonlinearities.tanh)
-        else:
-            activation_function = self.multiclass_activation.get(self.activation,
-                                                                 lasagne.nonlinearities.rectify)
+        activation_function = self._choose_activation(self.activation)
 
         # Define each layer
         for i in range(num_layers - 1):
@@ -298,26 +293,35 @@ class FeedForwardNet(object):
         else:
             return predictions
 
-    # TODO: Maybe create a utility module for constants
-    multiclass_activation = {
-        'softmax': lasagne.nonlinearities.softmax,
+    def _choose_activation(self, activation='relu', output=False,
+                           leakiness=0.3, alpha=0.6666, beta=1.7159):
+        if output:
+            nl = getattr(self, 'output_activations', None)
+        else:
+            nl = getattr(self, 'activation_functions', None)
+
+        layer_activation = nl.get(activation)
+        if activation == 'scaledTanh':
+            layer_activation(alpha, beta)
+        elif activation == 'leaky':
+            layer_activation(leakiness)
+
+        return layer_activation
+
+    activation_functions = {
         'relu': lasagne.nonlinearities.rectify,
         'leaky': lasagne.nonlinearities.leaky_rectify,
         'very_leaky': lasagne.nonlinearities.very_leaky_rectify,
         'elu': lasagne.nonlinearities.elu,
-        'softplus': lasagne.nonlinearities.softplus,
         'linear': lasagne.nonlinearities.linear,
-        'scaledTanh': lasagne.nonlinearities.ScaledTanH(scale_in=2./3.,
-                                                        scale_out=1.7159)
-    }
-
-    binary_activation = {
+        'scaledTanh': lasagne.nonlinearities.ScaledTanH,
         'sigmoid': lasagne.nonlinearities.sigmoid,
-        'softplus': lasagne.nonlinearities.softplus,
         'tahn': lasagne.nonlinearities.tanh,
-        'scaledTanh': lasagne.nonlinearities.ScaledTanH(scale_in=2./3.,
-                                                        scale_out=1.7159),
-        'elu': lasagne.nonlinearities.elu,
-        'relu': lasagne.nonlinearities.rectify,
+    }
+    output_activations = {
+        'softmax': lasagne.nonlinearities.softmax,
+        'softplus': lasagne.nonlinearities.softplus,
+        'sigmoid': lasagne.nonlinearities.sigmoid,
+        'tahn': lasagne.nonlinearities.tanh,
     }
 

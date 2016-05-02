@@ -311,16 +311,16 @@ class DeepFeedNet(AutoSklearnClassificationAlgorithm):
                                                   2, 20,
                                                   default=5)
 
-        output_activations = ['softmax', 'sigmoid', 'softplus']
+        output_activations = ['softmax', 'sigmoid', 'softplus', 'tanh']
 
-        binary_activations = ['sigmoid', 'tanh', 'scaledTanh', 'elu', 'relu']
+        other_tasks_activations = ['sigmoid', 'tanh', 'scaledTanh', 'elu', 'relu']
 
         multiclass_activations = ['relu', 'leaky', 'very_leaky', 'elu', 'linear', 'scaledTanh']
 
         if (dataset_properties is not None and
                 dataset_properties.get('multiclass') is False):
             nonlinearities = CategoricalHyperparameter(name='activation',
-                                                       choices=binary_activations,
+                                                       choices=other_tasks_activations,
                                                        default='sigmoid')
         else:
             nonlinearities = CategoricalHyperparameter(name='activation',
