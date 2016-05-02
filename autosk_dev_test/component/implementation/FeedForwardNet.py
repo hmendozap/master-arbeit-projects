@@ -18,7 +18,7 @@ def sharedX(X, dtype=theano.config.floatX, name=None):
     return theano.shared(np.asarray(X, dtype=dtype), name=name)
 
 
-def smorms3(cost, params, learning_rate=1e-3, eps=1e-16, gather=False):
+def smorm3s(cost, params, learning_rate=1e-3, eps=1e-16, gather=False):
     updates = []
     optim_params = []
     grads = T.grad(cost, params)
@@ -119,7 +119,7 @@ class FeedForwardNet(object):
             if self.is_regression:
                 print("... using regression loss")
             print("... building network")
-            print input_shape
+            print(input_shape)
             print("... with number of epochs")
             print(num_epochs)
 
@@ -166,7 +166,8 @@ class FeedForwardNet(object):
 
         loss = loss_function(prediction, target_var)
 
-        # Aggregate loss mean function with l2 Regularization on all layers' params
+        # Aggregate loss mean function with l2
+        # Regularization on all layers' params
         if self.is_binary or self.is_multilabel:
             loss = T.sum(loss, dtype=theano.config.floatX)
         else:
@@ -202,7 +203,7 @@ class FeedForwardNet(object):
                                                learning_rate=lr_scalar,
                                                momentum=self.momentum)
         elif solver == "smorm3s":
-            updates = smorms3(loss, params,
+            updates = smorm3s(loss, params,
                               learning_rate=lr_scalar)
         else:
             updates = lasagne.updates.sgd(loss, params,
@@ -287,7 +288,8 @@ class FeedForwardNet(object):
             except Exception as E:
                 print('Prediction casting error: %s' % E)
 
-        predictions = lasagne.layers.get_output(self.network, X, deterministic=True).eval()
+        predictions = lasagne.layers.get_output(self.network,
+                                                X, deterministic=True).eval()
         if self.is_binary:
             return np.append(1.0 - predictions, predictions, axis=1)
         else:

@@ -152,11 +152,9 @@ class DeepFeedNet(AutoSklearnClassificationAlgorithm):
     @staticmethod
     def get_hyperparameter_search_space(dataset_properties=None):
 
-
         # Hacky way to condition layers params based on the number of layers
         # 'c'=1, 'd'=2, 'e'=3 ,'f'=4', g ='5', h='6' + output_layer
-        layer_choices = [chr(i) for i in xrange(ord('c'), ord('i'))]
-
+        layer_choices = [chr(i) for i in range(ord('c'), ord('i'))]
 
         batch_size = UniformIntegerHyperparameter("batch_size",
                                                   32, 4096,
@@ -237,7 +235,7 @@ class DeepFeedNet(AutoSklearnClassificationAlgorithm):
         lr = UniformFloatHyperparameter("learning_rate", 1e-6, 1.0,
                                         log=True,
                                         default=0.01)
-        #TODO: Check with Aaron if lr for smorm3s should be categorical
+        # TODO: Check with Aaron if lr for smorm3s should be categorical
 
         l2 = UniformFloatHyperparameter("lambda2", 1e-7, 1e-2,
                                         log=True,
@@ -384,50 +382,40 @@ class DeepFeedNet(AutoSklearnClassificationAlgorithm):
         cs.add_hyperparameter(tanh_alpha)
         cs.add_hyperparameter(tanh_beta)
 
-        # TODO: Put this conditioning in a for-loop
-        # Condition layers parameter on layer choice
-        layer_2_condition = InCondition(num_units_layer_2, num_layers, ['d', 'e', 'f', 'g', 'h'])
-        layer_3_condition = InCondition(num_units_layer_3, num_layers, ['e', 'f', 'g', 'h'])
-        layer_4_condition = InCondition(num_units_layer_4, num_layers, ['f', 'g', 'h'])
-        layer_5_condition = InCondition(num_units_layer_5, num_layers, ['g', 'h'])
-        layer_6_condition = InCondition(num_units_layer_6, num_layers, ['h'])
-        cs.add_condition(layer_2_condition)
-        cs.add_condition(layer_3_condition)
-        cs.add_condition(layer_4_condition)
-        cs.add_condition(layer_5_condition)
-        cs.add_condition(layer_6_condition)
+        args = locals()
+        max_num_layers = 7  # Maximum number of layers coded
 
-        # Condition dropout parameter on layer choice
-        dropout_2_condition = InCondition(dropout_layer_2, num_layers, ['d', 'e', 'f', 'g', 'h'])
-        dropout_3_condition = InCondition(dropout_layer_3, num_layers, ['e', 'f', 'g', 'h'])
-        dropout_4_condition = InCondition(dropout_layer_4, num_layers, ['f', 'g', 'h'])
-        dropout_5_condition = InCondition(dropout_layer_5, num_layers, ['g', 'h'])
-        dropout_6_condition = InCondition(dropout_layer_6, num_layers, ['h'])
-        cs.add_condition(dropout_2_condition)
-        cs.add_condition(dropout_3_condition)
-        cs.add_condition(dropout_4_condition)
-        cs.add_condition(dropout_5_condition)
-        cs.add_condition(dropout_6_condition)
+        # TODO: Could be in a function in a new module
+        for i in range(2, max_num_layers):
+            # Condition layers parameter on layer choice
+            layer_unit_param = args.get("num_units_layer_" + str(i))
+            layer_cond = InCondition(child=layer_unit_param, parent=num_layers,
+                                     values=[l for l in layer_choices[i-1:]])
+            cs.add_condition(layer_cond)
+            # Condition dropout parameter on layer choice
+            layer_dropout_param = args.get("dropout_layer_" + str(i))
+            layer_cond = InCondition(child=layer_dropout_param, parent=num_layers,
+                                     values=[l for l in layer_choices[i-1:]])
+            cs.add_condition(layer_cond)
+            # Condition std parameter on layer choice
+            layer_std_param = args.get("std_layer_" + str(i))
+            layer_cond = InCondition(child=layer_std_param, parent=num_layers,
+                                     values=[l for l in layer_choices[i-1:]])
+            cs.add_condition(layer_cond)
 
-        # Condition std parameter on layer choice
-        std_2_condition = InCondition(std_layer_2, num_layers, ['d', 'e', 'f', 'g', 'h'])
-        std_3_condition = InCondition(std_layer_3, num_layers, ['e', 'f', 'g', 'h'])
-        std_4_condition = InCondition(std_layer_4, num_layers, ['f', 'g', 'h'])
-        std_5_condition = InCondition(std_layer_5, num_layers, ['g', 'h'])
-        std_6_condition = InCondition(std_layer_6, num_layers, ['h'])
-        cs.add_condition(std_2_condition)
-        cs.add_condition(std_3_condition)
-        cs.add_condition(std_4_condition)
-        cs.add_condition(std_5_condition)
-        cs.add_condition(std_6_condition)
-
+        # Conditioning on solver
         momentum_depends_on_solver = InCondition(momentum, solver,
-                                                 values=["sgd", "momentum", "nesterov"])
-
+                                                 values=["momentum", "nesterov"])
         beta1_depends_on_solver = EqualsCondition(beta1, solver, "adam")
         beta2_depends_on_solver = EqualsCondition(beta2, solver, "adam")
         rho_depends_on_solver = EqualsCondition(rho, solver, "adadelta")
 
+        cs.add_condition(momentum_depends_on_solver)
+        cs.add_condition(beta1_depends_on_solver)
+        cs.add_condition(beta2_depends_on_solver)
+        cs.add_condition(rho_depends_on_solver)
+
+        # Conditioning on learning rate policy
         lr_policy_depends_on_solver = InCondition(lr_policy, solver,
                                                   ["adadelta", "adagrad", "sgd",
                                                    "momentum", "nesterov"])
@@ -436,10 +424,6 @@ class DeepFeedNet(AutoSklearnClassificationAlgorithm):
         power_depends_on_policy = EqualsCondition(power, lr_policy, "inv")
         epoch_step_depends_on_policy = EqualsCondition(epoch_step, lr_policy, "step")
 
-        cs.add_condition(momentum_depends_on_solver)
-        cs.add_condition(beta1_depends_on_solver)
-        cs.add_condition(beta2_depends_on_solver)
-        cs.add_condition(rho_depends_on_solver)
         cs.add_condition(lr_policy_depends_on_solver)
         cs.add_condition(gamma_depends_on_policy)
         cs.add_condition(power_depends_on_policy)
