@@ -23,9 +23,13 @@ def _hyp_split(x, listing):
 
 
 def _validate_choice_names(x):
-    name = x.split(':')[-1]
+    split_str = x.split(':')
+    name = split_str[-1]
     if name == 'choice':
-        return x.split(':')[0]
+        return split_str[0]
+    elif(split_str[0] == 'regressor' or
+         split_str[0] == 'classifier' or split_str[0] == 'preprocessor'):
+        return name + '_' + split_str[1]
     else:
         return name
 

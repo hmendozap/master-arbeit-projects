@@ -1,10 +1,7 @@
 import unittest
-
-from component.LogReg import LogReg
+from autosklearn.pipeline.components.classification.LogReg import LogReg
 from autosklearn.pipeline.util import _test_classifier
-
 import sklearn.metrics
-import numpy as np
 
 
 class LogRegComponentTest(unittest.TestCase):
@@ -20,7 +17,6 @@ class LogRegComponentTest(unittest.TestCase):
                                                     make_binary=True)
             print(sklearn.metrics.accuracy_score(y_true=targets,
                                                  y_pred=predictions))
-
 
     def test_default_configuration_multilabel(self):
         for i in range(10):

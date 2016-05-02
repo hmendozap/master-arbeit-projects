@@ -1,13 +1,15 @@
 import unittest
-from autosklearn.pipeline.components.regression.LinReg import LinReg
+
+from autosklearn.pipeline.components.regression.RegDeepNet import RegDeepNet
 from autosklearn.pipeline.util import _test_regressor
 import sklearn.metrics
 
 
-class LinRegComponentTest(unittest.TestCase):
+class RegDeepNetComponentTest(unittest.TestCase):
     def test_default_configuration(self):
         for i in range(10):
-            predictions, targets =_test_regressor(LinReg)
+            predictions, targets = _test_regressor(RegDeepNet)
             R2score = sklearn.metrics.r2_score(y_true=targets, y_pred=predictions)
             print(R2score)
-            self.assertAlmostEqual(0.1212, R2score, places=1)
+            self.assertAlmostEqual(0.43, R2score)
+

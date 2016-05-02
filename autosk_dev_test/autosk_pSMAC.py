@@ -17,10 +17,9 @@ seed = args.seed
 reproducible_ensemble = args.reproducible_ensemble
 
 ensemble_size = 5
-#total_runtime = 172800  # two days
-total_runtime = 4832
-time_per_run = 635
-#time_per_run = 3175  # 635 for each run * 5 cv
+total_runtime = 172800  # two days
+#time_per_run = 635
+time_per_run = 3175  # 635 for each run * 5 cv
 
 # Create model
 modl = autosk.AutoML(time_left_for_this_task=total_runtime,
@@ -29,7 +28,7 @@ modl = autosk.AutoML(time_left_for_this_task=total_runtime,
                      tmp_dir=output_directory,
                      output_dir=output_directory,
                      include_estimators=['DeepFeedNet'],
-                     include_preprocessors=['NoPreprocessing', 'TruncatedSVD'],
+                     include_preprocessors=['RandomGaussianEmbeddings'],
                      ensemble_size=0,
                      ensemble_nbest=ensemble_size,
                      initial_configurations_via_metalearning=0,
