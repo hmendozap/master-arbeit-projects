@@ -22,7 +22,8 @@ class DeepFeedNet(AutoSklearnClassificationAlgorithm):
                  std_layer_2=0.005, std_layer_3=0.005, std_layer_4=0.005,
                  std_layer_5=0.005, std_layer_6=0.005,
                  momentum=0.99, beta1=0.9, beta2=0.9, rho=0.95,
-                 lr_policy='fixed', gamma=0.01, power=1.0, epoch_step=2,
+                 lr_policy='fixed', gamma=0.01, power=1.0, epoch_step=1,
+                 leakiness=1./3., tanh_alpha=2./3., tanh_beta=1.7159,
                  random_state=None):
         self.number_updates = number_updates
         self.batch_size = batch_size
@@ -41,6 +42,9 @@ class DeepFeedNet(AutoSklearnClassificationAlgorithm):
         self.gamma = gamma
         self.power = power
         self.epoch_step = epoch_step
+        self.leakiness = leakiness
+        self.tanh_alpha = tanh_alpha
+        self.tanh_beta = tanh_beta
 
         # Empty features and shape
         self.n_features = None
@@ -51,7 +55,6 @@ class DeepFeedNet(AutoSklearnClassificationAlgorithm):
 
         # To avoid eval call. Could be done with **karws
         args = locals()
-
         self.num_units_per_layer = []
         self.dropout_per_layer = []
         self.std_per_layer = []
@@ -339,7 +342,7 @@ class DeepFeedNet(AutoSklearnClassificationAlgorithm):
                                                log=True,
                                                default=1.7159)
 
-
+        # TODO: Add weight initialization function
 
         cs = ConfigurationSpace()
         # cs.add_hyperparameter(number_epochs)
@@ -441,5 +444,20 @@ class DeepFeedNet(AutoSklearnClassificationAlgorithm):
         cs.add_condition(gamma_depends_on_policy)
         cs.add_condition(power_depends_on_policy)
         cs.add_condition(epoch_step_depends_on_policy)
+
+        # Conditioning on activation function
+        leakiness_depends_on_activation = EqualsCondition(child=leakiness,
+                                                          parent=nonlinearities,
+                                                          value="leaky")
+        tanh_alpha_depends_on_activation = EqualsCondition(child=tanh_alpha,
+                                                           parent=nonlinearities,
+                                                           value="scaledTanh")
+        tanh_beta_depends_on_activation = EqualsCondition(child=tanh_beta,
+                                                          parent=nonlinearities,
+                                                          value="scaledTanh")
+
+        cs.add_condition(leakiness_depends_on_activation)
+        cs.add_condition(tanh_alpha_depends_on_activation)
+        cs.add_condition(tanh_beta_depends_on_activation)
 
         return cs

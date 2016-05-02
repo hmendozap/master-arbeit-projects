@@ -67,8 +67,9 @@ class FeedForwardNet(object):
                  dropout_per_layer=(0.5, 0.5, 0.5), std_per_layer=(0.005, 0.005, 0.005),
                  num_output_units=2, dropout_output=0.5, learning_rate=0.01,
                  lambda2=1e-4, momentum=0.9, beta1=0.9, beta2=0.9,
-                 rho=0.95, solver="adam", num_epochs=2, activation='relu',
-                 lr_policy="fixed", gamma=0.01, power=1.0, epoch_step=1,
+                 rho=0.95, solver='adam', num_epochs=2, activation='relu',
+                 lr_policy='fixed', gamma=0.01, power=1.0, epoch_step=1,
+                 leakiness=1./3., tanh_alpha=2./3., tanh_beta=1.7159,
                  is_sparse=False, is_binary=False, is_regression=False, is_multilabel=False):
 
         self.batch_size = batch_size
@@ -85,16 +86,14 @@ class FeedForwardNet(object):
         self.beta1 = T.cast(beta1, dtype=theano.config.floatX)
         self.beta2 = T.cast(beta2, dtype=theano.config.floatX)
         self.rho = T.cast(rho, dtype=theano.config.floatX)
-        # self.number_updates = number_updates
         self.num_epochs = num_epochs
         self.lr_policy = lr_policy
         self.gamma = np.asarray(gamma, dtype=theano.config.floatX)
-        if power > 1.0:
-            print('hyperparameter must be between 0 and 1')
-            self.power = np.asarray(1.0, dtype=theano.config.floatX)
-        else:
-            self.power = np.asarray(power, dtype=theano.config.floatX)
+        self.power = np.asarray(power, dtype=theano.config.floatX)
         self.epoch_step = np.asarray(epoch_step, dtype=theano.config.floatX)
+        self.leakiness = np.asarray(leakiness, dtype=theano.config.floatX)
+        self.tanh_alpha = np.asarray(tanh_alpha, dtype=theano.config.floatX)
+        self.tanh_beta = np.asarray(tanh_beta, dtype=theano.config.floatX)
         self.is_binary = is_binary
         self.is_regression = is_regression
         self.is_multilabel = is_multilabel
