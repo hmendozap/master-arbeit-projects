@@ -74,7 +74,6 @@ class DeepFeedNet(AutoSklearnClassificationAlgorithm):
         assert len(self.dropout_per_layer) == self.num_layers - 1,\
             "Number of created layers is different than actual layers"
 
-        # TODO: Better if statement
         if len(y.shape) == 2 and y.shape[1] > 1:  # Multilabel
             self.m_ismultilabel = True
             self.num_output_units = y.shape[1]
@@ -121,6 +120,9 @@ class DeepFeedNet(AutoSklearnClassificationAlgorithm):
                                                        gamma=self.gamma,
                                                        power=self.power,
                                                        epoch_step=self.epoch_step,
+                                                       leakiness=self.leakiness,
+                                                       tanh_alpha=self.tanh_alpha,
+                                                       tanh_beta=self.tanh_beta,
                                                        is_sparse=self.m_issparse,
                                                        is_binary=self.m_isbinary,
                                                        is_multilabel=self.m_ismultilabel)

@@ -234,7 +234,7 @@ class FeedForwardNet(object):
             decay = T.switch(T.eq(T.mod_check(epoch, step), 0.0),
                              T.power(gm, T.floor_div(epoch, step)),
                              1.0)
-        elif self.lr_policy == 'fixed':
+        else:
             decay = T.constant(1.0, name='fixed', dtype=theano.config.floatX)
 
         return theano.function([gm, epoch, powr, step],
@@ -304,15 +304,15 @@ class FeedForwardNet(object):
 
         layer_activation = nl.get(activation)
         if activation == 'scaledTanh':
-            layer_activation(alpha, beta)
+            layer_activation = layer_activation(scale_in=alpha, scale_out=beta)
         elif activation == 'leaky':
-            layer_activation(leakiness)
+            layer_activation = layer_activation(leakiness=leakiness)
 
         return layer_activation
 
     activation_functions = {
         'relu': lasagne.nonlinearities.rectify,
-        'leaky': lasagne.nonlinearities.leaky_rectify,
+        'leaky': lasagne.nonlinearities.LeakyRectify,
         'very_leaky': lasagne.nonlinearities.very_leaky_rectify,
         'elu': lasagne.nonlinearities.elu,
         'linear': lasagne.nonlinearities.linear,
