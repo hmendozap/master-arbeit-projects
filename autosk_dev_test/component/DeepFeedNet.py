@@ -2,7 +2,7 @@ import numpy as np
 import scipy.sparse as sp
 
 from HPOlibConfigSpace.configuration_space import ConfigurationSpace
-from HPOlibConfigSpace.conditions import EqualsCondition, InCondition
+from HPOlibConfigSpace.conditions import EqualsCondition, InCondition, AndConjunction
 from HPOlibConfigSpace.hyperparameters import UniformFloatHyperparameter, \
     UniformIntegerHyperparameter, CategoricalHyperparameter, Constant
 
@@ -14,16 +14,25 @@ class DeepFeedNet(AutoSklearnClassificationAlgorithm):
 
     def __init__(self, number_updates, batch_size, num_layers, num_units_layer_1,
                  dropout_layer_1, dropout_output, std_layer_1,
-                 learning_rate, solver, lambda2, activation,
+                 learning_rate, solver, lambda2,
                  num_units_layer_2=10, num_units_layer_3=10, num_units_layer_4=10,
                  num_units_layer_5=10, num_units_layer_6=10,
                  dropout_layer_2=0.5, dropout_layer_3=0.5, dropout_layer_4=0.5,
                  dropout_layer_5=0.5, dropout_layer_6=0.5,
+                 weight_init_1='he_normal', weight_init_2='he_normal', weight_init_3='he_normal',
+                 weight_init_4='he_normal', weight_init_5='he_normal', weight_init_6='he_normal',
+                 activation_layer_1='relu', activation_layer_2='relu', activation_layer_3='relu',
+                 activation_layer_4='relu', activation_layer_5='relu', activation_layer_6='relu',
+                 leakiness_layer_1=1./3., leakiness_layer_2=1./3., leakiness_layer_3=1./3.,
+                 leakiness_layer_4=1./3., leakiness_layer_5=1./3., leakiness_layer_6=1./3.,
+                 tanh_alpha_layer_1=2./3., tanh_alpha_layer_2=2./3., tanh_alpha_layer_3=2./3.,
+                 tanh_alpha_layer_4=2./3., tanh_alpha_layer_5=2./3., tanh_alpha_layer_6=2./3.,
+                 tanh_beta_layer_1=1.7159, tanh_beta_layer_2=1.7159, tanh_beta_layer_3=1.7159,
+                 tanh_beta_layer_4=1.7159, tanh_beta_layer_5=1.7159, tanh_beta_layer_6=1.7159,
                  std_layer_2=0.005, std_layer_3=0.005, std_layer_4=0.005,
                  std_layer_5=0.005, std_layer_6=0.005,
                  momentum=0.99, beta1=0.9, beta2=0.9, rho=0.95,
                  lr_policy='fixed', gamma=0.01, power=1.0, epoch_step=1,
-                 leakiness=1./3., tanh_alpha=2./3., tanh_beta=1.7159,
                  random_state=None):
         self.number_updates = number_updates
         self.batch_size = batch_size
@@ -38,13 +47,9 @@ class DeepFeedNet(AutoSklearnClassificationAlgorithm):
         self.beta2 = 1-beta2
         self.rho = rho
         self.solver = solver
-        self.activation = activation
         self.gamma = gamma
         self.power = power
         self.epoch_step = epoch_step
-        self.leakiness = leakiness
-        self.tanh_alpha = tanh_alpha
-        self.tanh_beta = tanh_beta
 
         # Empty features and shape
         self.n_features = None
@@ -57,11 +62,21 @@ class DeepFeedNet(AutoSklearnClassificationAlgorithm):
         args = locals()
         self.num_units_per_layer = []
         self.dropout_per_layer = []
+        self.activation_per_layer = []
+        self.weight_init_layer = []
         self.std_per_layer = []
+        self.leakiness_per_layer = []
+        self.tanh_alpha_per_layer = []
+        self.tanh_beta_per_layer = []
         for i in range(1, self.num_layers):
             self.num_units_per_layer.append(int(args.get("num_units_layer_" + str(i))))
             self.dropout_per_layer.append(float(args.get("dropout_layer_" + str(i))))
+            self.activation_per_layer.append(args.get("activation_layer_" + str(i)))
+            self.weight_init_layer.append(args.get("weight_init_" + str(i)))
             self.std_per_layer.append(float(args.get("std_layer_" + str(i))))
+            self.leakiness_per_layer.append(float(args.get("leakiness_layer_" + str(i))))
+            self.tanh_alpha_per_layer.append(float(args.get("tanh_alpha_layer_" + str(i))))
+            self.tanh_beta_per_layer.append(float(args.get("tanh_beta_layer_" + str(i))))
         self.estimator = None
 
     def _prefit(self, X, y):
@@ -104,7 +119,12 @@ class DeepFeedNet(AutoSklearnClassificationAlgorithm):
                                                        num_layers=self.num_layers,
                                                        num_units_per_layer=self.num_units_per_layer,
                                                        dropout_per_layer=self.dropout_per_layer,
+                                                       activation_per_layer=self.activation_per_layer,
+                                                       weight_init_per_layer=self.weight_init_layer,
                                                        std_per_layer=self.std_per_layer,
+                                                       leakiness_per_layer=self.leakiness_per_layer,
+                                                       tanh_alpha_per_layer=self.tanh_alpha_per_layer,
+                                                       tanh_beta_per_layer=self.tanh_beta_per_layer,
                                                        num_output_units=self.num_output_units,
                                                        dropout_output=self.dropout_output,
                                                        learning_rate=self.learning_rate,
@@ -115,14 +135,10 @@ class DeepFeedNet(AutoSklearnClassificationAlgorithm):
                                                        beta2=self.beta2,
                                                        rho=self.rho,
                                                        solver=self.solver,
-                                                       activation=self.activation,
                                                        num_epochs=number_epochs,
                                                        gamma=self.gamma,
                                                        power=self.power,
                                                        epoch_step=self.epoch_step,
-                                                       leakiness=self.leakiness,
-                                                       tanh_alpha=self.tanh_alpha,
-                                                       tanh_beta=self.tanh_beta,
                                                        is_sparse=self.m_issparse,
                                                        is_binary=self.m_isbinary,
                                                        is_multilabel=self.m_ismultilabel)
@@ -154,9 +170,11 @@ class DeepFeedNet(AutoSklearnClassificationAlgorithm):
     @staticmethod
     def get_hyperparameter_search_space(dataset_properties=None):
 
+        max_num_layers = 7  # Maximum number of layers coded
+
         # Hacky way to condition layers params based on the number of layers
         # 'c'=1, 'd'=2, 'e'=3 ,'f'=4', g ='5', h='6' + output_layer
-        layer_choices = [chr(i) for i in range(ord('c'), ord('i'))]
+        layer_choices = [chr(i) for i in range(ord('c'), ord('c')+max_num_layers)]
 
         batch_size = UniformIntegerHyperparameter("batch_size",
                                                   32, 4096,
@@ -172,103 +190,31 @@ class DeepFeedNet(AutoSklearnClassificationAlgorithm):
                                                choices=layer_choices,
                                                default='c')
 
-        # <editor-fold desc="Number of units in layers 1-6">
-        num_units_layer_1 = UniformIntegerHyperparameter("num_units_layer_1",
-                                                         64, 4096,
-                                                         log=True,
-                                                         default=256)
-
-        num_units_layer_2 = UniformIntegerHyperparameter("num_units_layer_2",
-                                                         64, 4096,
-                                                         log=True,
-                                                         default=128)
-
-        num_units_layer_3 = UniformIntegerHyperparameter("num_units_layer_3",
-                                                         64, 4096,
-                                                         log=True,
-                                                         default=128)
-
-        num_units_layer_4 = UniformIntegerHyperparameter("num_units_layer_4",
-                                                         10, 6144,
-                                                         log=True,
-                                                         default=10)
-
-        num_units_layer_5 = UniformIntegerHyperparameter("num_units_layer_5",
-                                                         10, 6144,
-                                                         log=True,
-                                                         default=10)
-
-        num_units_layer_6 = UniformIntegerHyperparameter("num_units_layer_6",
-                                                         10, 6144,
-                                                         log=True,
-                                                         default=10)
-        # </editor-fold>
-
-        # <editor-fold desc="Dropout in layers 1-6">
-        dropout_layer_1 = UniformFloatHyperparameter("dropout_layer_1",
-                                                     0.0, 0.99,
-                                                     default=0.5)
-
-        dropout_layer_2 = UniformFloatHyperparameter("dropout_layer_2",
-                                                     0.0, 0.99,
-                                                     default=0.5)
-
-        dropout_layer_3 = UniformFloatHyperparameter("dropout_layer_3",
-                                                     0.0, 0.99,
-                                                     default=0.5)
-
-        dropout_layer_4 = UniformFloatHyperparameter("dropout_layer_4",
-                                                     0.0, 0.99,
-                                                     default=0.5)
-
-        dropout_layer_5 = UniformFloatHyperparameter("dropout_layer_5",
-                                                     0.0, 0.99,
-                                                     default=0.5)
-
-        dropout_layer_6 = UniformFloatHyperparameter("dropout_layer_6",
-                                                     0.0, 0.99,
-                                                     default=0.5)
-        # </editor-fold>
-
-        dropout_output = UniformFloatHyperparameter("dropout_output",
-                                                    0.0, 0.99,
-                                                    default=0.5)
-
         lr = UniformFloatHyperparameter("learning_rate", 1e-6, 1.0,
                                         log=True,
                                         default=0.01)
-        # TODO: Check with Aaron if lr for smorm3s should be categorical
 
         l2 = UniformFloatHyperparameter("lambda2", 1e-7, 1e-2,
                                         log=True,
                                         default=1e-4)
 
-        # <editor-fold desc="Std for layers 1-6">
-        std_layer_1 = UniformFloatHyperparameter("std_layer_1", 1e-6, 0.1,
-                                                 log=True,
-                                                 default=0.005)
+        dropout_output = UniformFloatHyperparameter("dropout_output",
+                                                    0.0, 0.99,
+                                                    default=0.5)
 
-        std_layer_2 = UniformFloatHyperparameter("std_layer_2", 0.001, 0.1,
-                                                 log=True,
-                                                 default=0.005)
+        # Define basic hyperparameters and define the config space
+        # basic means that are independent from the number of layers
 
-        std_layer_3 = UniformFloatHyperparameter("std_layer_3", 0.001, 0.1,
-                                                 log=True,
-                                                 default=0.005)
+        cs = ConfigurationSpace()
+        # cs.add_hyperparameter(number_epochs)
+        cs.add_hyperparameter(number_updates)
+        cs.add_hyperparameter(batch_size)
+        cs.add_hyperparameter(num_layers)
+        cs.add_hyperparameter(lr)
+        cs.add_hyperparameter(l2)
+        cs.add_hyperparameter(dropout_output)
 
-        std_layer_4 = UniformFloatHyperparameter("std_layer_4", 0.001, 0.1,
-                                                 log=True,
-                                                 default=0.005)
-
-        std_layer_5 = UniformFloatHyperparameter("std_layer_5", 0.001, 0.1,
-                                                 log=True,
-                                                 default=0.005)
-
-        std_layer_6 = UniformFloatHyperparameter("std_layer_6", 0.001, 0.1,
-                                                 log=True,
-                                                 default=0.005)
-        # </editor-fold>
-
+        #  Define parameters with different child parameters and conditions
         solver_choices = ["adam", "adadelta", "adagrad",
                           "sgd", "momentum", "nesterov",
                           "smorm3s"]
@@ -311,65 +257,6 @@ class DeepFeedNet(AutoSklearnClassificationAlgorithm):
                                                   2, 20,
                                                   default=5)
 
-        output_activations = ['softmax', 'sigmoid', 'softplus', 'tanh']
-
-        other_tasks_activations = ['sigmoid', 'tanh', 'scaledTanh', 'elu', 'relu']
-
-        multiclass_activations = ['relu', 'leaky', 'very_leaky', 'elu', 'linear', 'scaledTanh']
-
-        if (dataset_properties is not None and
-                dataset_properties.get('multiclass') is False):
-            nonlinearities = CategoricalHyperparameter(name='activation',
-                                                       choices=other_tasks_activations,
-                                                       default='sigmoid')
-        else:
-            nonlinearities = CategoricalHyperparameter(name='activation',
-                                                       choices=multiclass_activations,
-                                                       default='relu')
-
-        leakiness = UniformFloatHyperparameter('leakiness',
-                                               0.01, 0.99,
-                                               default=0.3)
-        # http://lasagne.readthedocs.io/en/latest/modules/nonlinearities.html
-        # #lasagne.nonlinearities.ScaledTanH
-        # For normalized inputs, tanh_alpha = 2./3. and tanh_beta = 1.7159,
-        # according to http://yann.lecun.com/exdb/publis/pdf/lecun-98b.pdf
-
-        # TODO: Review the bounds
-        tanh_alpha = UniformFloatHyperparameter('tanh_alpha', 0.5, 1.0,
-                                                default=2./3.)
-        tanh_beta = UniformFloatHyperparameter('tanh_beta', 1.1, 3.0,
-                                               log=True,
-                                               default=1.7159)
-
-        # TODO: Add weight initialization function
-
-        cs = ConfigurationSpace()
-        # cs.add_hyperparameter(number_epochs)
-        cs.add_hyperparameter(number_updates)
-        cs.add_hyperparameter(batch_size)
-        cs.add_hyperparameter(num_layers)
-        cs.add_hyperparameter(num_units_layer_1)
-        cs.add_hyperparameter(num_units_layer_2)
-        cs.add_hyperparameter(num_units_layer_3)
-        cs.add_hyperparameter(num_units_layer_4)
-        cs.add_hyperparameter(num_units_layer_5)
-        cs.add_hyperparameter(num_units_layer_6)
-        cs.add_hyperparameter(dropout_layer_1)
-        cs.add_hyperparameter(dropout_layer_2)
-        cs.add_hyperparameter(dropout_layer_3)
-        cs.add_hyperparameter(dropout_layer_4)
-        cs.add_hyperparameter(dropout_layer_5)
-        cs.add_hyperparameter(dropout_layer_6)
-        cs.add_hyperparameter(dropout_output)
-        cs.add_hyperparameter(std_layer_1)
-        cs.add_hyperparameter(std_layer_2)
-        cs.add_hyperparameter(std_layer_3)
-        cs.add_hyperparameter(std_layer_4)
-        cs.add_hyperparameter(std_layer_5)
-        cs.add_hyperparameter(std_layer_6)
-        cs.add_hyperparameter(lr)
-        cs.add_hyperparameter(l2)
         cs.add_hyperparameter(solver)
         cs.add_hyperparameter(beta1)
         cs.add_hyperparameter(beta2)
@@ -379,31 +266,128 @@ class DeepFeedNet(AutoSklearnClassificationAlgorithm):
         cs.add_hyperparameter(gamma)
         cs.add_hyperparameter(power)
         cs.add_hyperparameter(epoch_step)
-        cs.add_hyperparameter(nonlinearities)
-        cs.add_hyperparameter(leakiness)
-        cs.add_hyperparameter(tanh_alpha)
-        cs.add_hyperparameter(tanh_beta)
 
-        args = locals()
-        max_num_layers = 7  # Maximum number of layers coded
+        # Define parameters that are needed it for each layer
+        output_activation_choices = ['softmax', 'sigmoid', 'softplus', 'tanh']
+
+        activations_choices = ['sigmoid', 'tanh', 'scaledTanh', 'elu', 'relu', 'leaky', 'linear']
+
+        # http://lasagne.readthedocs.io/en/latest/modules/nonlinearities.html
+        # #lasagne.nonlinearities.ScaledTanH
+        # For normalized inputs, tanh_alpha = 2./3. and tanh_beta = 1.7159,
+        # according to http://yann.lecun.com/exdb/publis/pdf/lecun-98b.pdf
+        # TODO: Review the bounds on  tanh_alpha and tanh_beta
+
+        weight_choices = ['constant', 'normal', 'uniform',
+                          'glorot_normal', 'glorot_uniform',
+                          'he_normal', 'he_uniform'
+                          'ortogonal', 'sparse']
+
+        # Iterate over parameters that are used in each layer
+        for i in range(1, max_num_layers):
+            layer_units = UniformIntegerHyperparameter("num_units_layer_" + str(i),
+                                                       64, 4096,
+                                                       log=True,
+                                                       default=128)
+            cs.add_hyperparameter(layer_units)
+            layer_dropout = UniformFloatHyperparameter("dropout_layer_" + str(i),
+                                                       0.0, 0.99,
+                                                       default=0.5)
+            cs.add_hyperparameter(layer_dropout)
+            weight_initialization = CategoricalHyperparameter('weight_init_' + str(i),
+                                                              choices=weight_choices,
+                                                              default='he_normal')
+            cs.add_hyperparameter(weight_initialization)
+            layer_std = UniformFloatHyperparameter("std_layer_" + str(i),
+                                                   1e-6, 0.1,
+                                                   log=True,
+                                                   default=0.005)
+            cs.add_hyperparameter(layer_std)
+            layer_activation = CategoricalHyperparameter("activation_layer_" + str(i),
+                                                         choices=activations_choices,
+                                                         default="relu")
+            cs.add_hyperparameter(layer_activation)
+            layer_leakiness = UniformFloatHyperparameter('leakiness_layer_' + str(i),
+                                                         0.01, 0.99,
+                                                         default=0.3)
+
+            cs.add_hyperparameter(layer_leakiness)
+            layer_tanh_alpha = UniformFloatHyperparameter('tanh_alpha_layer_' + str(i),
+                                                          0.5, 1.0,
+                                                          default=2./3.)
+            cs.add_hyperparameter(layer_tanh_alpha)
+            layer_tanh_beta = UniformFloatHyperparameter('tanh_beta_layer_' + str(i),
+                                                         1.1, 3.0,
+                                                         log=True,
+                                                         default=1.7159)
+            cs.add_hyperparameter(layer_tanh_beta)
 
         # TODO: Could be in a function in a new module
         for i in range(2, max_num_layers):
             # Condition layers parameter on layer choice
-            layer_unit_param = args.get("num_units_layer_" + str(i))
+            layer_unit_param = cs.get_hyperparameter("num_units_layer_" + str(i))
             layer_cond = InCondition(child=layer_unit_param, parent=num_layers,
                                      values=[l for l in layer_choices[i-1:]])
             cs.add_condition(layer_cond)
             # Condition dropout parameter on layer choice
-            layer_dropout_param = args.get("dropout_layer_" + str(i))
+            layer_dropout_param = cs.get_hyperparameter("dropout_layer_" + str(i))
             layer_cond = InCondition(child=layer_dropout_param, parent=num_layers,
                                      values=[l for l in layer_choices[i-1:]])
             cs.add_condition(layer_cond)
-            # Condition std parameter on layer choice
-            layer_std_param = args.get("std_layer_" + str(i))
-            layer_cond = InCondition(child=layer_std_param, parent=num_layers,
+            # Condition weight initialization on layer choice
+            layer_weight_param = cs.get_hyperparameter("weight_init_" + str(i))
+            layer_cond = InCondition(child=layer_weight_param, parent=num_layers,
                                      values=[l for l in layer_choices[i-1:]])
             cs.add_condition(layer_cond)
+            # Condition std parameter on layer choice
+            layer_std_param = cs.get_hyperparameter("std_layer_" + str(i))
+            layer_cond = InCondition(child=layer_std_param, parent=num_layers,
+                                     values=[l for l in layer_choices[i-1:]])
+            #cs.add_condition(layer_cond)
+            # Condition std parameter on weight layer initialization choice
+            weight_cond = EqualsCondition(child=layer_std_param, parent=layer_weight_param,
+                                          value='normal')
+
+            conj_cond = AndConjunction(layer_cond, weight_cond)
+            cs.add_condition(conj_cond)
+            # Condition activation parameter on layer choice
+            layer_activation_param = cs.get_hyperparameter("activation_layer_" + str(i))
+            layer_cond = InCondition(child=layer_activation_param, parent=num_layers,
+                                     values=[l for l in layer_choices[i-1:]])
+            cs.add_condition(layer_cond)
+            # Condition leakiness parameter on layer choice
+            layer_leakiness_param = cs.get_hyperparameter("leakiness_layer_" + str(i))
+            layer_cond = InCondition(child=layer_leakiness_param, parent=num_layers,
+                                     values=[l for l in layer_choices[i-1:]])
+            # cs.add_condition(layer_cond)
+            # Condition leakiness on activation choice
+            activation_cond = EqualsCondition(child=layer_leakiness_param,
+                                              parent=layer_activation_param,
+                                              value='leaky')
+            # cs.add_condition(activation_cond)
+            conj_cond = AndConjunction(layer_cond, activation_cond)
+            cs.add_condition(conj_cond)
+            # Condition tanh parameters on layer choice
+            layer_tanh_alpha_param = cs.get_hyperparameter("tanh_alpha_layer_" + str(i))
+            layer_cond = InCondition(child=layer_tanh_alpha_param, parent=num_layers,
+                                     values=[l for l in layer_choices[i-1:]])
+            # cs.add_condition(layer_cond)
+            # Condition tanh on activation choice
+            activation_cond = EqualsCondition(child=layer_tanh_alpha_param,
+                                              parent=layer_activation_param,
+                                              value='scaledTanh')
+            conj_cond = AndConjunction(layer_cond, activation_cond)
+            cs.add_condition(conj_cond)
+            layer_tanh_beta_param = cs.get_hyperparameter("tanh_beta_layer_" + str(i))
+            layer_cond = InCondition(child=layer_tanh_beta_param, parent=num_layers,
+                                     values=[l for l in layer_choices[i-1:]])
+            # cs.add_condition(layer_cond)
+            # Condition tanh on activation choice
+            activation_cond = EqualsCondition(child=layer_tanh_beta_param,
+                                              parent=layer_activation_param,
+                                              value='scaledTanh')
+            conj_cond = AndConjunction(layer_cond, activation_cond)
+            cs.add_condition(conj_cond)
 
         # Conditioning on solver
         momentum_depends_on_solver = InCondition(momentum, solver,
@@ -430,20 +414,5 @@ class DeepFeedNet(AutoSklearnClassificationAlgorithm):
         cs.add_condition(gamma_depends_on_policy)
         cs.add_condition(power_depends_on_policy)
         cs.add_condition(epoch_step_depends_on_policy)
-
-        # Conditioning on activation function
-        leakiness_depends_on_activation = EqualsCondition(child=leakiness,
-                                                          parent=nonlinearities,
-                                                          value="leaky")
-        tanh_alpha_depends_on_activation = EqualsCondition(child=tanh_alpha,
-                                                           parent=nonlinearities,
-                                                           value="scaledTanh")
-        tanh_beta_depends_on_activation = EqualsCondition(child=tanh_beta,
-                                                          parent=nonlinearities,
-                                                          value="scaledTanh")
-
-        cs.add_condition(leakiness_depends_on_activation)
-        cs.add_condition(tanh_alpha_depends_on_activation)
-        cs.add_condition(tanh_beta_depends_on_activation)
 
         return cs

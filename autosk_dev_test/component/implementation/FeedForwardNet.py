@@ -67,9 +67,11 @@ class FeedForwardNet(object):
                  dropout_per_layer=(0.5, 0.5, 0.5), std_per_layer=(0.005, 0.005, 0.005),
                  num_output_units=2, dropout_output=0.5, learning_rate=0.01,
                  lambda2=1e-4, momentum=0.9, beta1=0.9, beta2=0.9,
-                 rho=0.95, solver='adam', num_epochs=2, activation='relu',
+                 rho=0.95, solver='adam', num_epochs=2,
                  lr_policy='fixed', gamma=0.01, power=1.0, epoch_step=1,
-                 leakiness=1./3., tanh_alpha=2./3., tanh_beta=1.7159,
+                 activation_per_layer=('relu',)*3, weight_init_per_layer=('henormal',)*3,
+                 leakiness_per_layer=(1./3.,)*3, tanh_alpha_per_layer=(2./3.,)*3,
+                 tanh_beta_per_layer=(1.7159,)*3,
                  is_sparse=False, is_binary=False, is_regression=False, is_multilabel=False):
 
         self.batch_size = batch_size
@@ -79,7 +81,12 @@ class FeedForwardNet(object):
         self.dropout_per_layer = np.asarray(dropout_per_layer, dtype=theano.config.floatX)
         self.num_output_units = num_output_units
         self.dropout_output = T.cast(dropout_output, dtype=theano.config.floatX)
+        self.activation_per_layer = activation_per_layer
+        self.weight_init_per_layer = weight_init_per_layer
         self.std_per_layer = np.asarray(std_per_layer, dtype=theano.config.floatX)
+        self.leakiness_per_layer = np.asarray(leakiness_per_layer, dtype=theano.config.floatX)
+        self.tanh_alpha_per_layer = np.asarray(tanh_alpha_per_layer, dtype=theano.config.floatX)
+        self.tanh_beta_per_layer = np.asarray(tanh_beta_per_layer, dtype=theano.config.floatX)
         self.momentum = T.cast(momentum, dtype=theano.config.floatX)
         self.learning_rate = np.asarray(learning_rate, dtype=theano.config.floatX)
         self.lambda2 = T.cast(lambda2, dtype=theano.config.floatX)
@@ -91,15 +98,11 @@ class FeedForwardNet(object):
         self.gamma = np.asarray(gamma, dtype=theano.config.floatX)
         self.power = np.asarray(power, dtype=theano.config.floatX)
         self.epoch_step = np.asarray(epoch_step, dtype=theano.config.floatX)
-        self.leakiness = np.asarray(leakiness, dtype=theano.config.floatX)
-        self.tanh_alpha = np.asarray(tanh_alpha, dtype=theano.config.floatX)
-        self.tanh_beta = np.asarray(tanh_beta, dtype=theano.config.floatX)
         self.is_binary = is_binary
         self.is_regression = is_regression
         self.is_multilabel = is_multilabel
         self.is_sparse = is_sparse
         self.solver = solver
-        self.activation = activation
 
         if is_sparse:
             input_var = S.csr_matrix('inputs', dtype=theano.config.floatX)
@@ -126,16 +129,19 @@ class FeedForwardNet(object):
         self.network = lasagne.layers.InputLayer(shape=input_shape,
                                                  input_var=input_var)
 
-        # Choose hidden activation function
-        activation_function = self._choose_activation(self.activation)
-
         # Define each layer
         for i in range(num_layers - 1):
+            # activation_function = self._choose_activation(self.activation_per_layer[i],
+            #                                               leakiness=self.leakiness_per_layer[i],
+            #                                               alpha=self.tanh_alpha_per_layer[i],
+            #                                               beta=self.tanh_beta_per_layer[i])
+            init_weight = self._choose_weight_init(i)
+            activation_function = self._choose_activation(i)
             self.network = lasagne.layers.DenseLayer(
                  lasagne.layers.dropout(self.network,
                                         p=self.dropout_per_layer[i]),
                  num_units=self.num_units_per_layer[i],
-                 W=lasagne.init.GlorotNormal(gain=1.0),
+                 W=init_weight,
                  b=lasagne.init.Constant(val=0.0),
                  nonlinearity=activation_function)
 
@@ -295,20 +301,32 @@ class FeedForwardNet(object):
         else:
             return predictions
 
-    def _choose_activation(self, activation='relu', output=False,
-                           leakiness=0.3, alpha=0.6666, beta=1.7159):
+    def _choose_activation(self, index=0, output=False):
         if output:
             nl = getattr(self, 'output_activations', None)
         else:
             nl = getattr(self, 'activation_functions', None)
 
+        activation = self.activation_per_layer[index]
         layer_activation = nl.get(activation)
         if activation == 'scaledTanh':
-            layer_activation = layer_activation(scale_in=alpha, scale_out=beta)
+            layer_activation = layer_activation(scale_in=self.tanh_alpha_per_layer[index],
+                                                scale_out=self.tanh_beta_per_layer[index])
         elif activation == 'leaky':
-            layer_activation = layer_activation(leakiness=leakiness)
+            layer_activation = layer_activation(leakiness=self.leakiness_per_layer[index])
 
         return layer_activation
+
+    def _choose_weight_init(self, index=0, output=False):
+        wi = getattr(self, 'weight_initializations', None)
+        initialization = self.weight_init_per_layer[index]
+        weight_init = wi.get(initialization)
+        if initialization == 'normal':
+            weight_init = weight_init(std=self.std_per_layer[index])
+        else:
+            weight_init = weight_init()
+
+        return weight_init
 
     activation_functions = {
         'relu': lasagne.nonlinearities.rectify,
@@ -325,5 +343,16 @@ class FeedForwardNet(object):
         'softplus': lasagne.nonlinearities.softplus,
         'sigmoid': lasagne.nonlinearities.sigmoid,
         'tahn': lasagne.nonlinearities.tanh,
+    }
+    weight_initializations = {
+        'constant': lasagne.init.Constant,
+        'normal': lasagne.init.Normal,
+        'uniform': lasagne.init.Uniform,
+        'glorot_normal': lasagne.init.GlorotNormal,
+        'glorot_uniform': lasagne.init.GlorotUniform,
+        'he_normal': lasagne.init.HeNormal,
+        'he_uniform': lasagne.init.HeUniform,
+        'ortogonal': lasagne.init.Orthogonal,
+        'sparse': lasagne.init.Sparse
     }
 
