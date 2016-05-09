@@ -1,5 +1,5 @@
 import unittest
-from autosklearn.pipeline.components.classification.DeepFeedNet import DeepFeedNet
+from component.DeepFeedNet import DeepFeedNet
 from autosklearn.pipeline.util import _test_classifier
 import sklearn.metrics
 
