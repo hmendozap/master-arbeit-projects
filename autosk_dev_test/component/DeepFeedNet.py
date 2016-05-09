@@ -174,7 +174,7 @@ class DeepFeedNet(AutoSklearnClassificationAlgorithm):
 
         # Hacky way to condition layers params based on the number of layers
         # 'c'=1, 'd'=2, 'e'=3 ,'f'=4', g ='5', h='6' + output_layer
-        layer_choices = [chr(i) for i in range(ord('c'), ord('c')+max_num_layers)]
+        layer_choices = [chr(i) for i in range(ord('c'), ord('b')+max_num_layers)]
 
         batch_size = UniformIntegerHyperparameter("batch_size",
                                                   32, 4096,
@@ -339,55 +339,34 @@ class DeepFeedNet(AutoSklearnClassificationAlgorithm):
             layer_cond = InCondition(child=layer_weight_param, parent=num_layers,
                                      values=[l for l in layer_choices[i-1:]])
             cs.add_condition(layer_cond)
-            # Condition std parameter on layer choice
-            layer_std_param = cs.get_hyperparameter("std_layer_" + str(i))
-            layer_cond = InCondition(child=layer_std_param, parent=num_layers,
-                                     values=[l for l in layer_choices[i-1:]])
-            #cs.add_condition(layer_cond)
             # Condition std parameter on weight layer initialization choice
-            weight_cond = EqualsCondition(child=layer_std_param, parent=layer_weight_param,
+            layer_std_param = cs.get_hyperparameter("std_layer_" + str(i))
+            weight_cond = EqualsCondition(child=layer_std_param,
+                                          parent=layer_weight_param,
                                           value='normal')
-
-            conj_cond = AndConjunction(layer_cond, weight_cond)
-            cs.add_condition(conj_cond)
+            cs.add_condition(weight_cond)
             # Condition activation parameter on layer choice
             layer_activation_param = cs.get_hyperparameter("activation_layer_" + str(i))
             layer_cond = InCondition(child=layer_activation_param, parent=num_layers,
                                      values=[l for l in layer_choices[i-1:]])
             cs.add_condition(layer_cond)
-            # Condition leakiness parameter on layer choice
-            layer_leakiness_param = cs.get_hyperparameter("leakiness_layer_" + str(i))
-            layer_cond = InCondition(child=layer_leakiness_param, parent=num_layers,
-                                     values=[l for l in layer_choices[i-1:]])
-            # cs.add_condition(layer_cond)
             # Condition leakiness on activation choice
+            layer_leakiness_param = cs.get_hyperparameter("leakiness_layer_" + str(i))
             activation_cond = EqualsCondition(child=layer_leakiness_param,
                                               parent=layer_activation_param,
                                               value='leaky')
-            # cs.add_condition(activation_cond)
-            conj_cond = AndConjunction(layer_cond, activation_cond)
-            cs.add_condition(conj_cond)
-            # Condition tanh parameters on layer choice
-            layer_tanh_alpha_param = cs.get_hyperparameter("tanh_alpha_layer_" + str(i))
-            layer_cond = InCondition(child=layer_tanh_alpha_param, parent=num_layers,
-                                     values=[l for l in layer_choices[i-1:]])
-            # cs.add_condition(layer_cond)
+            cs.add_condition(activation_cond)
             # Condition tanh on activation choice
+            layer_tanh_alpha_param = cs.get_hyperparameter("tanh_alpha_layer_" + str(i))
             activation_cond = EqualsCondition(child=layer_tanh_alpha_param,
                                               parent=layer_activation_param,
                                               value='scaledTanh')
-            conj_cond = AndConjunction(layer_cond, activation_cond)
-            cs.add_condition(conj_cond)
+            cs.add_condition(activation_cond)
             layer_tanh_beta_param = cs.get_hyperparameter("tanh_beta_layer_" + str(i))
-            layer_cond = InCondition(child=layer_tanh_beta_param, parent=num_layers,
-                                     values=[l for l in layer_choices[i-1:]])
-            # cs.add_condition(layer_cond)
-            # Condition tanh on activation choice
             activation_cond = EqualsCondition(child=layer_tanh_beta_param,
                                               parent=layer_activation_param,
                                               value='scaledTanh')
-            conj_cond = AndConjunction(layer_cond, activation_cond)
-            cs.add_condition(conj_cond)
+            cs.add_condition(activation_cond)
 
         # Conditioning on solver
         momentum_depends_on_solver = InCondition(momentum, solver,
