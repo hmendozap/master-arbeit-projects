@@ -78,6 +78,7 @@ class DeepFeedNet(AutoSklearnClassificationAlgorithm):
             self.tanh_alpha_per_layer.append(float(args.get("tanh_alpha_layer_" + str(i))))
             self.tanh_beta_per_layer.append(float(args.get("tanh_beta_layer_" + str(i))))
         self.estimator = None
+        self.random_state = random_state
 
     def _prefit(self, X, y):
         self.batch_size = int(self.batch_size)
@@ -141,7 +142,8 @@ class DeepFeedNet(AutoSklearnClassificationAlgorithm):
                                                        epoch_step=self.epoch_step,
                                                        is_sparse=self.m_issparse,
                                                        is_binary=self.m_isbinary,
-                                                       is_multilabel=self.m_ismultilabel)
+                                                       is_multilabel=self.m_ismultilabel,
+                                                       random_state=self.random_state)
         self.estimator.fit(Xf, yf)
         return self
 

@@ -6,6 +6,7 @@ Modified on Apr 21, 2016
 @modified: Hector Mendoza
 """
 import numpy as np
+from sklearn.utils.validation import check_random_state
 import theano
 import theano.tensor as T
 import theano.sparse as S
@@ -47,12 +48,14 @@ def smorm3s(cost, params, learning_rate=1e-3, eps=1e-16, gather=False):
     return updates
 
 
-def iterate_minibatches(inputs, targets, batchsize, shuffle=False):
+def iterate_minibatches(inputs, targets, batchsize, shuffle=False, random_state=None):
     assert inputs.shape[0] == targets.shape[0],\
            "The number of training points is not the same"
     if shuffle:
+        seed = check_random_state(random_state)
         indices = np.arange(inputs.shape[0])
-        np.random.shuffle(indices)
+        seed.shuffle(indices)
+        # np.random.shuffle(indices)
     for start_idx in range(0, inputs.shape[0] - batchsize + 1, batchsize):
         if shuffle:
             excerpt = indices[start_idx:start_idx + batchsize]
@@ -62,7 +65,7 @@ def iterate_minibatches(inputs, targets, batchsize, shuffle=False):
 
 
 class FeedForwardNet(object):
-    def __init__(self, input_shape=(100, 28*28),
+    def __init__(self, input_shape=(100, 28*28), random_state=None,
                  batch_size=100, num_layers=4, num_units_per_layer=(10, 10, 10),
                  dropout_per_layer=(0.5, 0.5, 0.5), std_per_layer=(0.005, 0.005, 0.005),
                  num_output_units=2, dropout_output=0.5, learning_rate=0.01,
@@ -74,6 +77,7 @@ class FeedForwardNet(object):
                  tanh_beta_per_layer=(1.7159,)*3,
                  is_sparse=False, is_binary=False, is_regression=False, is_multilabel=False):
 
+        self.random_state = random_state
         self.batch_size = batch_size
         self.input_shape = input_shape
         self.num_layers = num_layers
@@ -125,6 +129,10 @@ class FeedForwardNet(object):
             print(input_shape)
             print("... with number of epochs")
             print(num_epochs)
+
+        # Added for reproducibility
+        seed = check_random_state(self.random_state)
+        lasagne.random.set_rng(seed)
 
         self.network = lasagne.layers.InputLayer(shape=input_shape,
                                                  input_var=input_var)
@@ -266,7 +274,8 @@ class FeedForwardNet(object):
         for epoch in range(self.num_epochs):
             train_err = 0
             train_batches = 0
-            for inputs, targets in iterate_minibatches(X, y, self.batch_size, shuffle=True):
+            for inputs, targets in iterate_minibatches(X, y, self.batch_size, shuffle=True,
+                                                       random_state=self.random_state):
                 train_err += self.train_fn(inputs, targets, self.learning_rate)
                 train_batches += 1
             decay = self.update_function(self.gamma, epoch+1.0,
