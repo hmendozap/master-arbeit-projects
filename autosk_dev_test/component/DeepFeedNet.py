@@ -282,7 +282,7 @@ class DeepFeedNet(AutoSklearnClassificationAlgorithm):
 
         weight_choices = ['constant', 'normal', 'uniform',
                           'glorot_normal', 'glorot_uniform',
-                          'he_normal', 'he_uniform'
+                          'he_normal', 'he_uniform',
                           'ortogonal', 'sparse']
 
         # Iterate over parameters that are used in each layer
