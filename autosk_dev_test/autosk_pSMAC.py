@@ -16,11 +16,9 @@ output_directory = args.output_directory
 seed = args.seed
 reproducible_ensemble = args.reproducible_ensemble
 
-ensemble_size = 5
-#total_runtime = 172800  # two days
-total_runtime = 4832
-time_per_run = 635
-#time_per_run = 3175  # 635 for each run * 5 cv
+ensemble_size = 2
+total_runtime = 600
+time_per_run = 60
 
 # Create model
 modl = autosk.AutoML(time_left_for_this_task=total_runtime,
@@ -28,8 +26,8 @@ modl = autosk.AutoML(time_left_for_this_task=total_runtime,
                      delete_tmp_folder_after_terminate=False,
                      tmp_dir=output_directory,
                      output_dir=output_directory,
-                     include_estimators=['DeepFeedNet'],
-                     include_preprocessors=['NoPreprocessing', 'TruncatedSVD'],
+                     include_estimators=['DeepNetIterative'],
+                     include_preprocessors=['NoPreprocessing'],
                      ensemble_size=0,
                      ensemble_nbest=ensemble_size,
                      initial_configurations_via_metalearning=0,
@@ -39,8 +37,8 @@ modl = autosk.AutoML(time_left_for_this_task=total_runtime,
                      metadata_directory=None,
                      keep_models=True,
                      debug_mode=False,
-                     resampling_strategy='cv',
-                     resampling_strategy_arguments={'folds': 5})
+                     resampling_strategy='holdout-iterative-fit',
+                     resampling_strategy_arguments=None)
 
 modl.fit_automl_dataset(dataset)
 modl.run_ensemble_builder(0, 1, ensemble_size).wait()
