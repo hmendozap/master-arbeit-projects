@@ -139,10 +139,6 @@ class FeedForwardNet(object):
 
         # Define each layer
         for i in range(num_layers - 1):
-            # activation_function = self._choose_activation(self.activation_per_layer[i],
-            #                                               leakiness=self.leakiness_per_layer[i],
-            #                                               alpha=self.tanh_alpha_per_layer[i],
-            #                                               beta=self.tanh_beta_per_layer[i])
             init_weight = self._choose_weight_init(i)
             activation_function = self._choose_activation(i)
             self.network = lasagne.layers.DenseLayer(

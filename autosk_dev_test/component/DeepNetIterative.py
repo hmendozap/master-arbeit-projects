@@ -112,7 +112,7 @@ class DeepNetIterative(AutoSklearnClassificationAlgorithm):
             self.estimator = None
 
         if self.estimator is None:
-            self._iterations = 0
+            self._iterations = 1
             from implementation import FeedForwardNet
             self.estimator = FeedForwardNet.FeedForwardNet(batch_size=self.batch_size,
                                                            input_shape=self.input_shape,

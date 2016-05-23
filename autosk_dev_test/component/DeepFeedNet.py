@@ -31,7 +31,7 @@ class DeepFeedNet(AutoSklearnClassificationAlgorithm):
                  tanh_beta_layer_4=1.7159, tanh_beta_layer_5=1.7159, tanh_beta_layer_6=1.7159,
                  std_layer_2=0.005, std_layer_3=0.005, std_layer_4=0.005,
                  std_layer_5=0.005, std_layer_6=0.005,
-                 momentum=0.99, beta1=0.9, beta2=0.9, rho=0.95,
+                 momentum=0.99, beta1=0.9, beta2=0.99, rho=0.95,
                  lr_policy='fixed', gamma=0.01, power=1.0, epoch_step=1,
                  random_state=None):
         self.number_updates = number_updates
