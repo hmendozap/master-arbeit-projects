@@ -263,6 +263,7 @@ class ConfigReader:
         seeds = ['seed_' + itseeds.split('-')[-1].split('.')[0] for itseeds in dirs]
         all_trajs = []
         runs_by_seed = []
+        # TODO: add a try-exception for no files found
         for fnames in dirs:
             try:
                 run_res = self.load_trajectory_by_file(fnames, full_config=full_config)
@@ -271,8 +272,9 @@ class ConfigReader:
             except IndexError:
                 print('CRASH in: ' + os.path.split(fnames)[1])
 
-        trajectories_df = _pd.concat(all_trajs, axis=0)
-        trajectories_df = trajectories_df.reset_index().drop('index', axis=1)
+        trajectories_df = _pd.concat(all_trajs, axis=0, keys=seeds)
+        trajectories_df = trajectories_df.reset_index().drop('level_1', axis=1)
+        trajectories_df.rename(columns={'level_0': 'run'}, inplace=True)
         # Try to convert to numeric type
         trajectories_df = trajectories_df.apply(_pd.to_numeric, errors='ignore')
 
