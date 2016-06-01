@@ -3,10 +3,92 @@ import os
 import csv
 import time
 import numpy as np
+import glob
+import natsort as ns
+from joblib import Parallel, delayed
+from functools import partial
 
 from autosklearn.data.competition_data_manager import CompetitionDataManager
 from autosklearn.ensembles.ensemble_selection import EnsembleSelection
 from autosklearn.evaluation.util import calculate_score
+
+
+def figure_indexes(path_predictions):
+    fname = os.path.join(path_predictions, 'predictions_ensemble_*.npy')
+    file_names = ns.natsorted(glob.glob(fname))
+    return file_names
+
+
+def writing_to_csv():
+    pass
+
+
+def ensemble_loop(iterations, starttime, info,
+                  ensemble_size, valid_labels, test_labels):
+
+    written_first_line = False
+    all_predictions = []
+    all_test_predictions = []
+    identifiers = []
+    csv_writer_list = []
+
+    # Assign the time of the "current" model
+    time_function_evaluation = os.path.getmtime(iterations[-1]) - starttime
+
+    ids = os.path.basename(iterations[-1]).split(".")[0].split('_')[-1]
+    print(ids)
+
+    for index, iters in enumerate(iterations):
+        test_fname = iters.replace('ensemble', 'valid')
+
+        if not os.path.isfile(test_fname):
+            continue
+
+        predictions = np.load(iters)
+        all_predictions.append(predictions)
+
+        identifiers.append(index)
+        test_predictions = np.load(test_fname)
+        all_test_predictions.append(test_predictions)
+
+    # Build the ensemble
+    start = time.time()
+
+    es_cls = EnsembleSelection(ensemble_size, info["task"], info["metric"])
+    es_cls.fit(np.array(all_predictions), valid_labels, identifiers)
+    order = es_cls.indices_
+
+    # Compute validation error
+    s1 = time.time()
+    ensemble_error = 1 - calculate_score(
+        valid_labels,
+        np.nanmean(np.array(all_predictions)[order], axis=0),
+        info["task"], info["metric"], info['label_num'])
+
+    # Compute test error
+    ensemble_test_error = 1 - calculate_score(
+        test_labels,
+        np.nanmean(np.array(all_test_predictions)[order], axis=0),
+        info["task"], info["metric"], info['label_num'])
+
+    ensemble_time = time.time() - start
+
+    # We have to add an additional row for the first iteration
+    if len(iterations) == 1:
+        csv_writer_list.append({'Time': 0,
+                                'Training (Empirical) Performance': ensemble_error,
+                                'Test Set Performance': ensemble_test_error,
+                                'AC Overhead Time': 0,
+                                'Validation Configuration ID': 0})
+        written_first_line = True
+
+    csv_writer_list.append({'Time': ensemble_time + time_function_evaluation,
+                            'Training (Empirical) Performance': ensemble_error,
+                            'Test Set Performance': ensemble_test_error,
+                            'AC Overhead Time': 0,
+                            'Validation Configuration ID': ids})
+
+    return csv_writer_list
 
 
 def evaluation(dataset, experiment_dir, run, output_path, ensemble_size=50):
@@ -32,97 +114,33 @@ def evaluation(dataset, experiment_dir, run, output_path, ensemble_size=50):
     test_labels = D.data["Y_valid"]
 
     # Create output csv file
-    csv_file = open(os.path.join(output_path, dataset_name, "ensemble_validationResults-traj-run-" + str(run) + "-walltime.csv"), "w")
-    fieldnames = ['Time', 'Training (Empirical) Performance', 'Test Set Performance', 'AC Overhead Time', 'Validation Configuration ID']
+    csv_file = open(os.path.join(output_path, dataset_name,
+                                 "ensemble_validationResults-traj-run-" + str(run) + "-walltime.csv"), "w")
+    fieldnames = ['Time', 'Training (Empirical) Performance', 'Test Set Performance', 'AC Overhead Time',
+                  'Validation Configuration ID']
     csv_writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
     csv_writer.writeheader()
 
-    n_func_evals = len(os.listdir(path_predictions_ensemble))
-    # assert n_func_evals == len(os.listdir(path_predictions_test))
+    list_models = figure_indexes(path_predictions_ensemble)
+    list_iter_models = [list_models[:j+1] for j in range(len(list_models))]
 
-    all_predictions = []
-    all_test_predictions = []
-
-    # Counts the number of function evaluation (also those that are broken)
-    iters = 0
-    # Counts the number of models
-    idx = 0
-    identifiers = []
+    info = dict()
+    info["task"] = D.info["task"]
+    info["metric"] = D.info["metric"]
+    info["label_num"] = D.info['label_num']
 
     with open(os.path.join(experiment_dir, ".auto-sklearn",
                            "start_time_%d" % int(run)), "r") as fh:
-        starttime = float(fh.read())
-    # starttime = os.path.getmtime(os.path.join(experiment_dir, "space.pcs"))
+        start_time = float(fh.read())
 
-    written_first_line = False
-    while iters < n_func_evals:
-        print("Iteration %d/%d" % (iters, n_func_evals))
-        s = time.time()
-        # Load predictions
-        num_run = str(idx).zfill(5)
-        file_name = "predictions_ensemble_%s_%s.npy" % (run, num_run)
+    pfunc = partial(ensemble_loop, starttime=start_time, info=info,
+                    ensemble_size=ensemble_size, test_labels=test_labels,
+                    valid_labels=valid_labels)
 
-        # If the current function evaluation failed continue with the next
-        if not os.path.isfile \
-                        (os.path.join(path_predictions_ensemble, file_name)):
-            idx += 1
-            continue
-
-        # Read the modification time of the predictions file and compute the interval to the first prediction file.
-        # This interval will be add to the time we needed to build the ensemble
-        time_function_evaluation = os.path.getmtime(os.path.join(path_predictions_ensemble, file_name)) - starttime
-
-        # Add the new prediction to the previous seen predictions
-        predictions = np.load(os.path.join(path_predictions_ensemble, file_name))
-        all_predictions.append(predictions)
-
-        file_name = "predictions_valid_%s_%s.npy" % (run, num_run)
-
-        if not os.path.isfile(os.path.join(path_predictions_test, file_name)):
-            idx += 1
-            continue
-
-        identifiers.append(iters)
-        test_predictions = np.load(os.path.join(path_predictions_test, file_name))
-        all_test_predictions.append(test_predictions)
-        # Build the ensemble
-        start = time.time()
-        es_cls = EnsembleSelection(ensemble_size, D.info["task"], D.info["metric"])
-        es_cls.fit(np.array(all_predictions), valid_labels, identifiers)
-        order = es_cls.get_model_identifiers()
-
-        # Compute validation error
-        s1 = time.time()
-        ensemble_error = 1 - calculate_score(
-            valid_labels,
-            np.nanmean(np.array(all_predictions)[order], axis=0),
-            D.info["task"], D.info["metric"], D.info['label_num'])
-
-        # Compute test error
-        ensemble_test_error = 1 - calculate_score(
-            test_labels,
-            np.nanmean(np.array(all_test_predictions)[order], axis=0),
-            D.info["task"], D.info["metric"], D.info['label_num'])
-
-        ensemble_time = time.time() - start
-
-        # We have to add an additional row for the first iteration
-        if not written_first_line:
-            csv_writer.writerow({'Time': 0,
-                                 'Training (Empirical) Performance': ensemble_error,
-                                 'Test Set Performance': ensemble_test_error,
-                                 'AC Overhead Time': 0,
-                                 'Validation Configuration ID': 0})
-            written_first_line = True
-
-        csv_writer.writerow({'Time': ensemble_time + time_function_evaluation,
-                             'Training (Empirical) Performance': ensemble_error,
-                             'Test Set Performance': ensemble_test_error,
-                             'AC Overhead Time': 0,
-                             'Validation Configuration ID': idx})
-
-        idx += 1
-        iters += 1
+    list_to_write = Parallel(n_jobs=-1)(delayed(pfunc)(i) for i in list_iter_models)
+    for lw in list_to_write:
+        for l in lw:
+            csv_writer.writerow(l)
 
 if __name__ == '__main__':
     parser = ArgumentParser()
