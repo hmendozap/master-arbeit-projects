@@ -260,6 +260,9 @@ class ConfigReader:
             scenario_dir = os.path.join(data_dir, dataset, traj_filename)
 
         dirs = _ns.natsorted(_glob.glob(scenario_dir))
+        if len(dirs) == 0:
+            raise ValueError("Not file found in %s" % scenario_dir)
+
         seeds = ['seed_' + itseeds.split('-')[-1].split('.')[0] for itseeds in dirs]
         all_trajs = []
         runs_by_seed = []
@@ -273,7 +276,11 @@ class ConfigReader:
                 print('CRASH in: ' + os.path.split(fnames)[1])
 
         trajectories_df = _pd.concat(all_trajs, axis=0, keys=seeds)
-        trajectories_df = trajectories_df.reset_index().drop('level_1', axis=1)
+        if full_config:
+            trajectories_df = (trajectories_df.reset_index().
+                               drop('level_1', axis=1, level=0))
+        else:
+            trajectories_df = trajectories_df.reset_index().drop('level_1', axis=1)
         trajectories_df.rename(columns={'level_0': 'run'}, inplace=True)
         # Try to convert to numeric type
         trajectories_df = trajectories_df.apply(_pd.to_numeric, errors='ignore')
