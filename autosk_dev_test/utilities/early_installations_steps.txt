@@ -1,0 +1,38 @@
+sudo tar -xvzf pycharm-community-5.0.1.tar.gz -C /usr/local/
+sudo ln -s /usr/local/pycharm-community-5.0.1/bin/pycharm.sh /usr/local/bin/pycharm
+pycharm
+cd ~/workspace/auto-sklearn-master/
+cd auto-sklearn-master
+
+## Starts installation nightmares
+lsvirtualenv
+mkvirtualenv autosk
+workon autosk
+pip install --upgrade pip
+pip install --upgrade Lasagne
+pip install ipython
+pip install jupyter
+ls -l
+pip install -U pip
+cd HPOlib
+git status
+git pull
+pip install scikit-learn==0.16.1
+pip install git+ssh://git@github.com/mfeurer/HPOlibConfigSpace.git
+pip install git+https://github.com/automl/paramsklearn.git@development
+pip install -e HPOlib --no-deps ## Why no deps?
+pip install liac-arff
+pip install lockfile
+pip install joblib
+pip install psutil
+pip install pyyaml
+pip install pandas==0.16.2
+pip install protobuf
+pip install Cython
+pip install setuptools
+pip install mock
+
+pip install git+ssh://git@github.com/automl/auto-sklearn.git@development#egg=autosklearn --no-deps
+pip install git+ssh://git@github.com/automl/auto-sklearn.git#egg=autosklearn --no-deps
+pip install git+ssh://git@github.com/automl/auto-sklearn.git@development#egg=autosklearn --no-deps
+exit
