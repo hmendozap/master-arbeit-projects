@@ -284,18 +284,126 @@ class ConfigReader:
             except IndexError:
                 print('CRASH in: ' + os.path.split(fnames)[1])
 
-        trajectories_df = _pd.concat(all_trajs, axis=0, keys=seeds)
+        if preprocessor != 'all':
+            trajectories_df = _pd.concat(all_trajs, axis=0, keys=seeds)
+            drop_col = 'level_1'
+        else:
+            trajectories_df = _pd.concat(all_trajs, axis=0)
+            drop_col = 'index'
+
         if full_config:
             trajectories_df = (trajectories_df.reset_index().
-                               drop('level_1', axis=1, level=0))
+                               drop(drop_col, axis=1, level=0))
         else:
-            trajectories_df = trajectories_df.reset_index().drop('level_1', axis=1)
-        trajectories_df.rename(columns={'level_0': 'run'}, inplace=True)
+            trajectories_df = trajectories_df.reset_index().drop(drop_col, axis=1)
+
+        if preprocessor != 'all':
+            trajectories_df.rename(columns={'level_0': 'run'}, inplace=True)
+
         # Try to convert to numeric type
         trajectories_df = trajectories_df.apply(_pd.to_numeric, errors='ignore')
 
         self.trajectories_df = trajectories_df.copy()
         return trajectories_df.copy()
+
+    @staticmethod
+    def load_validation_by_file(fname, load_config=False):
+        traj_cols = ['time', 'train_performance', 'test_performance']
+        cols_to_load = [0, 1, 2]
+
+        if load_config:
+            cols_to_load += [4]
+            traj_cols += ['config_ID']
+
+        try:
+            traj_res = _pd.read_csv(fname, delimiter=",", usecols=cols_to_load,
+                                    header=None, skiprows=1)
+        except OSError:
+            print('file %s does not exist. Please check path' % fname)
+
+        traj_res.columns = traj_cols
+
+        if load_config:
+            config_name = fname.replace('Results', 'CallStrings')
+            if not os.path.isfile(config_name):
+                print("Configuration file does not exists. Returning trajectory only")
+                return traj_res.copy()
+
+            rm_quote = lambda z: z.strip('-').replace("'", "").replace("__", "")
+            try:
+                config_res = _pd.read_csv(config_name, delimiter=",", usecols=[0, 1], header=0,
+                                          skipinitialspace=False, converters={1: rm_quote})
+                config_res.columns = ['config_ID', 'configuration']
+            except OSError:
+                raise OSError('file %s does not exists. Please check path' % config_name)
+
+            configuration_series = config_res.configuration.str.split('\s-', expand=True)
+            all_configs = []
+            for _, row in configuration_series.iterrows():
+                all_configs.append(row.dropna().str.split(' ', expand=True).set_index(0).T)
+
+            configs_df = _pd.concat(all_configs).reset_index(drop=True)
+            configs_df = _pd.concat([config_res.config_ID, configs_df], axis=1)
+            traj_res = _pd.merge(left=traj_res, right=configs_df, on='config_ID')
+
+        return traj_res.copy()
+
+    def load_validation_trajectories(self, data_dir=None, dataset=None,
+                                     preprocessor=None, load_config=False):
+        """
+        :param data_dir: Directory of where validation files live
+        :param dataset: Dataset used to train the model
+        :param preprocessor: Preprocessing method used in the data.
+        :param load_config: Whether to return also the configuration of validation call
+        :return: pandas.DataFrame
+        """
+        if data_dir is None:
+            if self.data_dir is None:
+                raise ValueError('Location of experiments not given')
+            else:
+                data_dir = self.data_dir
+
+        if dataset is None:
+            if self.dataset is not None:
+                dataset = self.dataset
+            else:
+                raise ValueError('Dataset not given')
+
+        validation_fn = "validationResults-detailed-traj-run-*-walltime.csv"
+        preprocessors_list = ["Densifier", "TruncatedSVD", "ExtraTreesPreprocessorClassification",
+                              "FastICA", "FeatureAgglomeration", "KernelPCA", "RandomKitchenSinks",
+                              "LibLinear_Preprocessor", "NoPreprocessing", "Nystroem", "PCA",
+                              "PolynomialFeatures", "RandomTreesEmbedding", "SelectPercentileClassification",
+                              "SelectRates"]
+
+        if preprocessor == 'all':
+            scenario_dir = [os.path.join(data_dir, dataset, p, dataset, validation_fn) for p in preprocessors_list]
+            dirs = []
+            [dirs.extend(_glob.glob(p)) for p in scenario_dir]
+            dirs = _ns.natsorted(dirs)
+        elif preprocessor is not None:
+            scenario_dir = os.path.join(data_dir, dataset, preprocessor, dataset, validation_fn)
+            dirs = _ns.natsorted(_glob.glob(scenario_dir))
+        else:
+            scenario_dir = os.path.join(data_dir, dataset, validation_fn)
+            dirs = _ns.natsorted(_glob.glob(scenario_dir))
+
+        if len(dirs) == 0:
+            raise ValueError("Not file found in %s" % scenario_dir)
+
+        seeds = ['seed_' + itseeds.split('-')[-2].split('.')[0] for itseeds in dirs]
+
+        all_validations = []
+        for fname in dirs:
+            try:
+                val_traj = self.load_validation_by_file(fname, load_config=load_config)
+                all_validations.append(val_traj)
+            except IndexError:
+                print("CRASH in: %s" % os.path.split(fname)[1])
+
+        validations_df = _pd.concat(all_validations, axis=0)
+        validations_df = validations_df.reset_index(drop=True)
+        return validations_df.copy()
 
     def load_solver_policies_runs(self, base_data_dir, datasets):
         # TODO: Transverse all directories from data_dir, and key
