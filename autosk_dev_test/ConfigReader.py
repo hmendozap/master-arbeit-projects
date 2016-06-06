@@ -430,3 +430,20 @@ class ConfigReader:
         if storage_dir is None:
             storage_dir = self.data_dir
         _np.save(os.path.join(storage_dir, 'trajectory_data_matrix'), self.trajectories_df)
+
+    def _get_directories(self):
+        pass
+
+    def _validate_directories(self, data_dir, dataset):
+        if data_dir is None:
+            if self.data_dir is None:
+                raise ValueError('Location of experiments not given')
+            else:
+                data_dir = self.data_dir
+
+        if dataset is None:
+            if self.dataset is not None:
+                dataset = self.dataset
+                return data_dir, dataset
+            else:
+                raise ValueError('Dataset not given')
