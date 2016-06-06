@@ -5,7 +5,7 @@ Created on Thu Feb 12 2016
 @author: Hector
 
 Class to load and store configurations
-read from run or trajectory files
+read from run, trajectory or validation files
 """
 import os
 import numpy as _np
@@ -233,14 +233,14 @@ class ConfigReader:
         """
         :param data_dir: Directory of where SMAC files live
         :param dataset: Dataset used to train the model
-        :param preprocessor: Preprocessing method used in the data. None means all
+        :param preprocessor: Preprocessing method used in the data.
         :param full_config: Whether to return also the configuration of the preprocessor, imputation and one-hot-encoding
         :return: pandas.DataFrame with the performance (training errors) and the feed neural network configurations given
                  by the detailed trajectory files
         """
         if data_dir is None:
             if self.data_dir is None:
-                raise ValueError('Location of information not given')
+                raise ValueError('Location of experiments not given')
             else:
                 data_dir = self.data_dir
 
@@ -252,21 +252,30 @@ class ConfigReader:
 
         # Could be done with find-like method, but no
         traj_filename = "detailed-traj-run-*.csv"
+        preprocessors_list = ["Densifier", "TruncatedSVD", "ExtraTreesPreprocessorClassification",
+                              "FastICA", "FeatureAgglomeration", "KernelPCA", "RandomKitchenSinks",
+                              "LibLinear_Preprocessor", "NoPreprocessing", "Nystroem", "PCA",
+                              "PolynomialFeatures", "RandomTreesEmbedding", "SelectPercentileClassification",
+                              "SelectRates"]
+
         if preprocessor == 'all':
-            scenario_dir = os.path.join(data_dir, dataset, '*', dataset, traj_filename)
+            scenario_dir = [os.path.join(data_dir, dataset, p, dataset, traj_filename) for p in preprocessors_list]
+            dirs = []
+            [dirs.extend(_glob.glob(p)) for p in scenario_dir]
+            dirs = _ns.natsorted(dirs)
         elif preprocessor is not None:
             scenario_dir = os.path.join(data_dir, dataset, preprocessor, dataset, traj_filename)
+            dirs = _ns.natsorted(_glob.glob(scenario_dir))
         else:
             scenario_dir = os.path.join(data_dir, dataset, traj_filename)
+            dirs = _ns.natsorted(_glob.glob(scenario_dir))
 
-        dirs = _ns.natsorted(_glob.glob(scenario_dir))
         if len(dirs) == 0:
             raise ValueError("Not file found in %s" % scenario_dir)
 
         seeds = ['seed_' + itseeds.split('-')[-1].split('.')[0] for itseeds in dirs]
         all_trajs = []
         runs_by_seed = []
-        # TODO: add a try-exception for no files found
         for fnames in dirs:
             try:
                 run_res = self.load_trajectory_by_file(fnames, full_config=full_config)
