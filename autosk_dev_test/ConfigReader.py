@@ -321,7 +321,8 @@ class ConfigReader:
         except OSError:
             print('file %s does not exist. Please check path' % fname)
 
-        traj_res.columns = traj_cols
+        smac_cols = zip(['smac']*len(traj_cols), traj_cols)
+        traj_res.columns = _pd.MultiIndex.from_tuples(smac_cols)
 
         if load_config:
             config_name = fname.replace('Results', 'CallStrings')
@@ -342,9 +343,13 @@ class ConfigReader:
             for _, row in configuration_series.iterrows():
                 all_configs.append(row.dropna().str.split(' ', expand=True).set_index(0).T)
 
+            from operator import itemgetter
             configs_df = _pd.concat(all_configs).reset_index(drop=True)
+            configuration_cols = map(lambda X: itemgetter(0, -1)(X.split(':')), configs_df.columns.values)
+            configs_cols = _pd.MultiIndex.from_tuples([('smac', 'config_ID')] + configuration_cols)
             configs_df = _pd.concat([config_res.config_ID, configs_df], axis=1)
-            traj_res = _pd.merge(left=traj_res, right=configs_df, on='config_ID')
+            configs_df.columns = configs_cols
+            traj_res = _pd.merge(left=traj_res, right=configs_df, on=[('smac','config_ID')])
 
         return traj_res.copy()
 
