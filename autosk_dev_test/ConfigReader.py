@@ -323,6 +323,7 @@ class ConfigReader:
 
         smac_cols = zip(['smac']*len(traj_cols), traj_cols)
         traj_res.columns = _pd.MultiIndex.from_tuples(smac_cols)
+        traj_res = traj_res.apply(_pd.to_numeric, errors='coerce')
 
         if load_config:
             config_name = fname.replace('Results', 'CallStrings')
@@ -333,12 +334,13 @@ class ConfigReader:
             rm_quote = lambda z: z.strip('-').replace("'", "").replace("__", "")
             try:
                 config_res = _pd.read_csv(config_name, delimiter=",", usecols=[0, 1], header=0,
-                                          skipinitialspace=False, converters={1: rm_quote})
+                                          skiprows=0, skipinitialspace=False,
+                                          converters={1: rm_quote})
                 config_res.columns = ['config_ID', 'configuration']
             except OSError:
                 raise OSError('file %s does not exists. Please check path' % config_name)
 
-            configuration_series = config_res.configuration.str.split('\s-', expand=True)
+            configuration_series = config_res.configuration.str.split('\s-(?=[a-z])', expand=True)
             all_configs = []
             for _, row in configuration_series.iterrows():
                 all_configs.append(row.dropna().str.split(' ', expand=True).set_index(0).T)
@@ -349,8 +351,9 @@ class ConfigReader:
             configs_cols = _pd.MultiIndex.from_tuples([('smac', 'config_ID')] + configuration_cols)
             configs_df = _pd.concat([config_res.config_ID, configs_df], axis=1)
             configs_df.columns = configs_cols
-            traj_res = _pd.merge(left=traj_res, right=configs_df, on=[('smac','config_ID')])
+            traj_res = _pd.merge(left=traj_res, right=configs_df, on=[('smac', 'config_ID')])
 
+        traj_res = traj_res.apply(_pd.to_numeric, errors='ignore')
         return traj_res.copy()
 
     def load_validation_trajectories(self, data_dir=None, dataset=None,
