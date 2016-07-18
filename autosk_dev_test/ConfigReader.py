@@ -22,10 +22,24 @@ def _hyp_split(x, listing):
     return param_value[1]
 
 
+def _validate_config_columns(x, past_names):
+    split_str = x.split(':')
+    name_l0 = split_str[0]
+    name_l1 = split_str[-1]
+    if name_l1 in past_names and name_l1 != 'choice':
+        name_l1 = name_l1 + '_' + split_str[1]
+    past_names.append(name_l1)
+    return name_l0, name_l1
+
+
 def _validate_choice_names(x):
-    name = x.split(':')[-1]
+    split_str = x.split(':')
+    name = split_str[-1]
     if name == 'choice':
-        return x.split(':')[0]
+        return split_str[0]
+    elif(split_str[0] == 'regressor' or
+         split_str[0] == 'classifier' or split_str[0] == 'preprocessor'):
+        return name + '_' + split_str[1]
     else:
         return name
 
@@ -349,8 +363,17 @@ class ConfigReader:
             configs_df = _pd.concat(all_configs).reset_index(drop=True)
             configuration_cols = map(lambda X: itemgetter(0, -1)(X.split(':')), configs_df.columns.values)
             configs_cols = _pd.MultiIndex.from_tuples([('smac', 'config_ID')] + configuration_cols)
+
+            clean_names = []
+            if not configs_cols.is_unique:
+                from functools import partial
+                parfunc = partial(_validate_config_columns, past_names=clean_names)
+                configuration_cols = map(parfunc, configs_df.columns.values)
+                configs_cols = _pd.MultiIndex.from_tuples([('smac', 'config_ID')] + configuration_cols)
+
             configs_df = _pd.concat([config_res.config_ID, configs_df], axis=1)
             configs_df.columns = configs_cols
+
             traj_res = _pd.merge(left=traj_res, right=configs_df, on=[('smac', 'config_ID')])
 
         traj_res = traj_res.apply(_pd.to_numeric, errors='ignore')
