@@ -27,11 +27,13 @@ def parameter_plotting(dataset, data_dir, plot_dir, pairwise=False):
 
     ## Parameter importance table
     state_run_dir = os.path.join(data_dir, dataset, preprocessor, dataset, 'state-run100')
-    fanova_set = pyfanova.fanova.Fanova(state_run_dir, improvement_over='QUANTILE', quantile_to_compare=0.25)
+    # fanova_set = pyfanova.fanova.Fanova(state_run_dir, improvement_over='QUANTILE', quantile_to_compare=0.25)
+    fanova_set = pyfanova.fanova.Fanova(state_run_dir)
     max_marginals = 7
     cols_imp_df = ['marginal', 'parameter']
     temp_df = pd.DataFrame(fanova_set.print_all_marginals(max_num=max_marginals, pairwise=pairwise), columns=cols_imp_df)
-    flatex = '%d_marginal_table_for_%s_over_q1.tex' % (max_marginals, dataset)
+    # flatex = '%d_marginal_table_for_%s_over_q1.tex' % (max_marginals, dataset)
+    flatex = '%d_marginal_table_for_%s_default.tex' % (max_marginals, dataset)
     # To avoid dots
     pd.set_option('display.max_colwidth', -1)
     temp_df.to_latex(os.path.join(plot_dir, 'tables', flatex))
@@ -58,17 +60,21 @@ def parameter_plotting(dataset, data_dir, plot_dir, pairwise=False):
                 if p[1] not in categorical_params:
                     viz_set.plot_categorical_pairwise(p[0], p[1], ax=ax_hyper)
                     ax_hyper.set_xlabel(clear_name(p[1]))
+                    ax_hyper.legend(loc='best', title=clear_name(p[0]))
                 else:
                     continue
             else:
                 if p[1] not in categorical_params:
                     viz_set.plot_pairwise_marginal(p[0], p[1], ax=ax_hyper)
-                    ax_hyper.set_xlabel(clear_name(p[1]))
+                    ax_hyper.set_xlabel(clear_name(p[0]))
+                    ax_hyper.set_ylabel(clear_name(p[1]))
                 else:
                     viz_set.plot_categorical_pairwise(p[1], p[0], ax=ax_hyper)
                     ax_hyper.set_xlabel(clear_name(p[0]))
+                    ax_hyper.legend(loc='best', title=clear_name(p[1]))
         plt.tight_layout()
-        fig_hyper.savefig(os.path.join(plot_dir, '%s_marginal_for_%s_over_q1' % (label, dataset)))
+        fig_hyper.savefig(os.path.join(plot_dir, '%s_for_%s_default.pdf' % (label, dataset)))
+        # fig_hyper.savefig(os.path.join(plot_dir, '%s_for_%s_over_q1.pdf' % (label, dataset)))
 
 
 if __name__ == '__main__':

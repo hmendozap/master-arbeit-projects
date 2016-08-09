@@ -8,7 +8,7 @@ for j in ${experiments};
 do
     for i in ${datasets};
     do
-        python fanova_analyisis_autonet.py /mhome/mendozah/autonet_${j}/results/experiment/ ${i}_bac /mhome/mendozah/autonet_${j}/results/plots_importance/over_quantile/ 1;
+        python fanova_analysis_autonet_gpu.py /mhome/mendozah/autonet_${j}/results/experiment/ ${i}_bac /mhome/mendozah/autonet_${j}/results/plots_importance/ 1;
     done;
 done;
 exit 0
