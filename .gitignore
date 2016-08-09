@@ -2,6 +2,7 @@
 utilities/binaries/
 num_run_*
 tmp/
+parameters_curves/
 
 # csv that maybe too big
 *.csv
