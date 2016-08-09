@@ -54,10 +54,19 @@ add_classifier(DeepNetIterative.DeepNetIterative)
 
 [...]
 
-automl = autosklearn.classification.AutoSklearnClassifier(include_estimators=['DeepNetIterative'])
+automl = autosklearn.automl.AutoML(include_estimators=['DeepNetIterative'])
 ```
 
+## Plotting using validation and fANOVA
 
+Because training Auto-Net provided with a lot of data to observe
+hyperparameters' behavior, I used the scripts inside the
+`plotting_params_distro` folder.
 
-<!--+ **plotting_param_distros**: Where I plotted the distributions of different parameters based on-->
-<!--different solver types or preprocessing methods-->
+Dependencies required to run the notebooks and python scripts:
+
+- numpy
+- pandas
+- jupyter notebook
+- seaborn
+- [fork of fANOVA](https://github.com/hmendozap/fanova)
